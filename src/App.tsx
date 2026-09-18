@@ -13,6 +13,7 @@ import { FailureModes } from './components/FailureModes'
 import { Replay } from './components/Replay'
 import { Shadow } from './components/Shadow'
 import { Footer } from './components/Footer'
+import { AuthPage } from './components/AuthPage'
 import { useSmoothScroll } from './lib/useSmoothScroll'
 
 /**
@@ -26,9 +27,14 @@ import { useSmoothScroll } from './lib/useSmoothScroll'
  */
 export default function App() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [isSignUpOpen, setSignUpOpen] = useState(false)
 
   // Lenis inertia scrolling, synced to the GSAP ScrollTrigger ticker
   useSmoothScroll()
+
+  if (isSignUpOpen) {
+    return <AuthPage onBack={() => setSignUpOpen(false)} />
+  }
 
   return (
     <div className="relative overflow-x-clip">
@@ -36,7 +42,7 @@ export default function App() {
       <NavOverlay open={menuOpen} onClose={() => setMenuOpen(false)} />
 
       <main>
-        <Hero />
+        <Hero onTryClick={() => setSignUpOpen(true)} />
         <Marquee />
         <Vision />
         <Stats />

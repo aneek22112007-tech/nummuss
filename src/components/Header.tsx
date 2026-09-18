@@ -52,9 +52,6 @@ export function Header({ onOpenMenu, menuOpen }: Props) {
         <FlipButton href="#experiment">The Experiment</FlipButton>
         <FlipButton href="#gates">Safety Gates</FlipButton>
         <FlipButton href="#replay">India Replay</FlipButton>
-        <FlipButton href="#shadow" variant="mint">
-          Try /shadow
-        </FlipButton>
       </nav>
 
       <button
