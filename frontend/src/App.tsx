@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AnimatePresence } from 'motion/react'
 import { Header } from './components/Header'
 import { NavOverlay } from './components/NavOverlay'
 import { Hero } from './components/Hero'
@@ -32,10 +33,6 @@ export default function App() {
   // Lenis inertia scrolling, synced to the GSAP ScrollTrigger ticker
   useSmoothScroll()
 
-  if (isSignUpOpen) {
-    return <AuthPage onBack={() => setSignUpOpen(false)} />
-  }
-
   return (
     <div className="relative overflow-x-clip">
       <Header onOpenMenu={() => setMenuOpen(true)} menuOpen={menuOpen} />
@@ -56,6 +53,10 @@ export default function App() {
       </main>
 
       <Footer />
+
+      <AnimatePresence>
+        {isSignUpOpen && <AuthPage onBack={() => setSignUpOpen(false)} />}
+      </AnimatePresence>
     </div>
   )
 }
