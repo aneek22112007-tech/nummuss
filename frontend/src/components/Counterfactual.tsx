@@ -4,8 +4,7 @@ import { BracketLabel } from './ui/BracketLabel'
 import { Reveal } from './ui/Reveal'
 import { SplitHeading } from './ui/SplitHeading'
 import { DecisionDrawer } from './DecisionDrawer'
-import { useApi } from '../lib/useApi'
-import { api } from '../lib/api'
+import { useCounterfactual, useFeed } from '../lib/useApi'
 import type { FeedDecision, CounterfactualResponse } from '../lib/api'
 import { counterfactual as mockContent } from '../data/content'
 
@@ -199,8 +198,8 @@ function TwinChart() {
  * with decision row click opening the detail drawer.
  */
 export function Counterfactual() {
-  const { data: cfData, loading: cfLoading } = useApi(api.counterfactual, FALLBACK_CF)
-  const { data: feedData } = useApi(() => api.feed(), FALLBACK_FEED)
+  const { data: cfData, loading: cfLoading } = useCounterfactual()
+  const { data: feedData } = useFeed('india_replay', 'disciplined')
   const [activeDecision, setActiveDecision] = useState<FeedDecision | null>(null)
 
   const cf = cfData ?? FALLBACK_CF
@@ -215,7 +214,7 @@ export function Counterfactual() {
   ]
 
   const handleRowClick = useCallback((dec: FeedDecision) => setActiveDecision(dec), [])
-  const decisions = feedData?.decisions ?? FALLBACK_FEED.decisions
+  const decisions = feedData ?? FALLBACK_FEED.decisions
 
   return (
     <>
@@ -290,7 +289,7 @@ export function Counterfactual() {
                 <div className="border-b border-snow/8 px-4 py-2.5 text-[10px] uppercase tracking-[0.16em] text-snow/35">
                   Decision Feed — click a row for full audit
                 </div>
-                {decisions.map((dec) => (
+                {decisions.map((dec: FeedDecision) => (
                   <button
                     key={dec.decision_id}
                     id={`decision-row-${dec.decision_id}`}

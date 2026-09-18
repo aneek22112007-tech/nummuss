@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion } from 'motion/react'
 import { GoogleOAuthProvider, GoogleLogin, CredentialResponse } from '@react-oauth/google'
+import { useNavigate } from 'react-router-dom'
 import { jwtDecode } from 'jwt-decode'
 import { HeroCanvas } from './HeroCanvas'
 import { useAuth } from '../lib/auth'
@@ -27,6 +28,7 @@ function AuthPageContent({ onBack }: AuthPageProps) {
   const [status, setStatus] = useState<Status>('idle')
   const [errorMessage, setErrorMessage] = useState<string>('')
   const { login } = useAuth()
+  const navigate = useNavigate()
 
   const toggleMode = () => {
     setMode(prev => (prev === 'signup' ? 'login' : 'signup'))
@@ -54,7 +56,8 @@ function AuthPageContent({ onBack }: AuthPageProps) {
       
       // Show success message briefly then redirect
       setTimeout(() => {
-        onBack()
+        
+        navigate('/dashboard')
         // Scroll to top of page after redirect
         window.scrollTo({ top: 0, behavior: 'smooth' })
       }, 1800)
@@ -91,7 +94,8 @@ function AuthPageContent({ onBack }: AuthPageProps) {
       
       // Show success message briefly then redirect
       setTimeout(() => {
-        onBack()
+        
+        navigate('/dashboard')
         // Scroll to top of page after redirect
         window.scrollTo({ top: 0, behavior: 'smooth' })
       }, 1800)

@@ -28,7 +28,7 @@ const smoothstep = (value: number) => {
  * scroll distance to scrub across: scrolling pushes the camera through the cave
  * mouth while the headline lifts, blurs and fades away to hand off to the page.
  */
-export function Hero({ onTryClick }: { onTryClick?: () => void }) {
+export function Hero({ onTryClick: _onTryClick }: { onTryClick?: () => void }) {
   const sectionRef = useRef<HTMLElement>(null)
   const copyRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
@@ -115,8 +115,8 @@ export function Hero({ onTryClick }: { onTryClick?: () => void }) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.85, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
             >
-              <FlipButton onClick={onTryClick} variant="mint" size="lg">
-                Try Nummuss
+              <FlipButton href="/dashboard" variant="mint" size="lg">
+                Enter Nummuss
               </FlipButton>
               <FlipButton href={hero.primaryCta.href} size="lg">
                 {hero.primaryCta.label}

@@ -4,9 +4,8 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { BracketLabel } from './ui/BracketLabel'
 import { Reveal } from './ui/Reveal'
 import { SplitHeading } from './ui/SplitHeading'
-import { useApi } from '../lib/useApi'
-import { api } from '../lib/api'
-import type { ReplayScenarioResponse } from '../lib/api'
+import { useReplayScenario } from '../lib/useApi'
+
 import { replay, replayScenarios } from '../data/content'
 
 gsap.registerPlugin(ScrollTrigger)
@@ -22,7 +21,7 @@ const SCENARIO_IMAGES: Record<string, string> = {
 
 
 function useScenario(id: string) {
-  return useApi(() => api.replayScenario(id), null as ReplayScenarioResponse | null, id)
+  return useReplayScenario(id)
 }
 
 /* ---------- Single scenario card ---------- */
