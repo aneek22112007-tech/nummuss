@@ -47,7 +47,7 @@ if HAS_PYDANTIC:
         decision_id: str
         timestamp: str
         mode: MarketMode
-        market_context: Literal['US_live', 'INDIA_REPLAY']
+        market_context: str
         agent_role: AgentRole
         symbol: str
         action: Action
@@ -111,7 +111,7 @@ else:
         decision_id: str
         timestamp: str
         mode: MarketMode
-        market_context: Literal['US_live', 'INDIA_REPLAY']
+        market_context: str
         agent_role: AgentRole
         symbol: str
         action: Action

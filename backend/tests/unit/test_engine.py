@@ -51,7 +51,16 @@ class TestNummussEngine(unittest.TestCase):
         self.assertEqual(res_cd, "blocked_cooldown")
         self.assertEqual(reason_cd, "revenge trade after loss")
 
-        # 3. Valid Discipline Pass
+        # 3. Daily Loss Limit Violation
+        allowed_loss, res_loss, reason_loss = evaluate_behavioral_guardrails(
+            action="sell", trade_size_val=2000.0, portfolio_value=100000.0,
+            daily_loss=21000.0, max_daily_loss=20000.0, consecutive_losses=0, evidence_quality="strong"
+        )
+        self.assertFalse(allowed_loss)
+        self.assertEqual(res_loss, "blocked_daily_loss")
+        self.assertEqual(reason_loss, "loss chasing")
+
+        # 4. Valid Discipline Pass
         allowed_pass, res_pass, reason_pass = evaluate_behavioral_guardrails(
             action="buy", trade_size_val=2000.0, portfolio_value=100000.0,
             daily_loss=1000.0, max_daily_loss=20000.0, consecutive_losses=0, evidence_quality="strong"
@@ -81,6 +90,20 @@ class TestNummussEngine(unittest.TestCase):
         body = json.loads(res["body"])
         self.assertEqual(body["verdict"], "blocked")
         self.assertEqual(body["reason_label"], "revenge trading")
+
+    def test_api_handler_feed_endpoint(self):
+        event = {"httpMethod": "GET", "path": "/feed", "queryStringParameters": {"mode": "india_replay", "agent": "disciplined"}}
+        res = api_handler(event, None)
+        self.assertEqual(res["statusCode"], 200)
+        body = json.loads(res["body"])
+        self.assertIn("decisions", body)
+
+    def test_api_handler_counterfactual_endpoint(self):
+        event = {"httpMethod": "GET", "path": "/counterfactual"}
+        res = api_handler(event, None)
+        self.assertEqual(res["statusCode"], 200)
+        body = json.loads(res["body"])
+        self.assertIn("capital_difference_inr", body)
 
 if __name__ == "__main__":
     unittest.main()

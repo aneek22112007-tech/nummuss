@@ -53,7 +53,7 @@ def handle_feed(params: dict) -> dict:
         except Exception as e:
             print(f"Error reading decisions table: {e}")
 
-    filtered = [i for i in items if i.get("mode") == mode or i.get("agent_role") == agent_role]
+    filtered = [i for i in items if i.get("mode") == mode and i.get("agent_role") == agent_role]
     return response(200, {
         "mode": mode,
         "agent": agent_role,

@@ -150,7 +150,7 @@ Output only a valid JSON object with keys:
             print(f"DynamoDB connection warning: {e}")
 
     # Generate decision records for both Disciplined Agent and Undisciplined Twin
-    roles = [("disciplined", 3), ("undisciplined", 3)]
+    roles = [("disciplined", 0), ("undisciplined", 3)]
 
     for role, consecutive_losses in roles:
         guardrail_layer = None
