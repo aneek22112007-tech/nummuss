@@ -5,3 +5,6 @@ preview/
 *.local
 .vite/
 .env
+frontend/.env
+*.mov
+*.mp4

@@ -1,24 +1,101 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
+import { GoogleOAuthProvider, GoogleLogin, CredentialResponse } from '@react-oauth/google'
+import { jwtDecode } from 'jwt-decode'
 import { HeroCanvas } from './HeroCanvas'
+import { useAuth } from '../lib/auth'
 
 type AuthMode = 'login' | 'signup'
-type Status = 'idle' | 'loading' | 'success'
+type Status = 'idle' | 'loading' | 'success' | 'error'
 
 interface AuthPageProps {
   onBack: () => void
 }
 
-export function AuthPage({ onBack }: AuthPageProps) {
+interface GoogleJwtPayload {
+  sub: string
+  email: string
+  name: string
+  picture?: string
+  email_verified: boolean
+}
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
+
+function AuthPageContent({ onBack }: AuthPageProps) {
   const [mode, setMode] = useState<AuthMode>('signup')
   const [status, setStatus] = useState<Status>('idle')
+  const [errorMessage, setErrorMessage] = useState<string>('')
+  const { login } = useAuth()
 
-  const toggleMode = () => setMode(prev => (prev === 'signup' ? 'login' : 'signup'))
+  const toggleMode = () => {
+    setMode(prev => (prev === 'signup' ? 'login' : 'signup'))
+    setStatus('idle')
+    setErrorMessage('')
+  }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleGoogleSuccess = (credentialResponse: CredentialResponse) => {
+    try {
+      if (!credentialResponse.credential) {
+        throw new Error('No credential received')
+      }
+
+      const decoded = jwtDecode<GoogleJwtPayload>(credentialResponse.credential)
+      
+      login({
+        id: decoded.sub,
+        email: decoded.email,
+        name: decoded.name,
+        picture: decoded.picture,
+        provider: 'google',
+      })
+
+      setStatus('success')
+      
+      // Show success message briefly then redirect
+      setTimeout(() => {
+        onBack()
+        // Scroll to top of page after redirect
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }, 1800)
+    } catch (error) {
+      console.error('Google login error:', error)
+      setStatus('error')
+      setErrorMessage('Failed to process Google authentication')
+    }
+  }
+
+  const handleGoogleError = () => {
+    setStatus('error')
+    setErrorMessage('Google authentication failed. Please try again.')
+  }
+
+  const handleEmailSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setStatus('loading')
-    setTimeout(() => setStatus('success'), 1500)
+    setErrorMessage('')
+
+    const formData = new FormData(e.currentTarget)
+    const email = formData.get('email') as string
+    const name = formData.get('name') as string || email.split('@')[0]
+
+    // Simulate email auth (in production, this would call your backend)
+    setTimeout(() => {
+      login({
+        id: `email-${Date.now()}`,
+        email,
+        name,
+        provider: 'email',
+      })
+      setStatus('success')
+      
+      // Show success message briefly then redirect
+      setTimeout(() => {
+        onBack()
+        // Scroll to top of page after redirect
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }, 1800)
+    }, 1500)
   }
 
   // Define stagger animation variants for form elements
@@ -86,11 +163,13 @@ export function AuthPage({ onBack }: AuthPageProps) {
                     <polyline points="20 6 9 17 4 12"></polyline>
                   </svg>
                 </div>
-                <h2 className="font-display text-3xl font-semibold tracking-tight text-snow">You're on the list</h2>
+                <h2 className="font-display text-3xl font-semibold tracking-tight text-snow">
+                  {mode === 'signup' ? 'Welcome to Nummuss' : 'Welcome back'}
+                </h2>
                 <p className="mt-3 text-snow/60">
                   {mode === 'signup' 
-                    ? "We'll notify you when the behavioral safety layer is ready for live accounts."
-                    : "A magic link has been sent to your email."}
+                    ? "You're signed up! Redirecting to your dashboard..."
+                    : "Successfully signed in. Redirecting..."}
                 </p>
                 <button
                   onClick={onBack}
@@ -106,36 +185,48 @@ export function AuthPage({ onBack }: AuthPageProps) {
                     N
                   </div>
                   <h1 className="font-display text-4xl font-semibold tracking-tight text-snow">
-                    {mode === 'signup' ? 'Join the waitlist' : 'Welcome back'}
+                    {mode === 'signup' ? 'Create Account' : 'Welcome Back'}
                   </h1>
                   <p className="mt-2 text-snow/60">
                     {mode === 'signup' 
-                      ? 'Experience trading with deterministic behavioral guardrails.'
-                      : 'Enter your details to access your dashboard.'}
+                      ? 'Start using the behavioral safety layer for AI trading agents.'
+                      : 'Sign in to access your Nummuss dashboard.'}
                   </p>
                 </div>
+
+                {errorMessage && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="rounded-xl border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger"
+                  >
+                    {errorMessage}
+                  </motion.div>
+                )}
 
                 <motion.form 
                   variants={containerVars}
                   initial="hidden"
                   animate="visible"
                   className="space-y-5" 
-                  onSubmit={handleSubmit}
+                  onSubmit={handleEmailSubmit}
                 >
                   
-                  <motion.button
+                  <motion.div
                     variants={itemVars}
-                    type="button"
-                    className="flex w-full items-center justify-center gap-3 rounded-2xl border border-snow/10 bg-snow/5 px-4 py-3.5 text-sm font-medium text-snow transition-colors hover:bg-snow/10"
+                    className="flex w-full items-center justify-center"
                   >
-                    <svg className="h-5 w-5" viewBox="0 0 24 24">
-                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                    </svg>
-                    Continue with Google
-                  </motion.button>
+                    <GoogleLogin
+                      onSuccess={handleGoogleSuccess}
+                      onError={handleGoogleError}
+                      useOneTap
+                      shape="pill"
+                      size="large"
+                      text={mode === 'signup' ? 'signup_with' : 'signin_with'}
+                      width="384"
+                      logo_alignment="left"
+                    />
+                  </motion.div>
 
                   <motion.div variants={itemVars} className="relative flex items-center py-2">
                     <div className="flex-grow border-t border-snow/10"></div>
@@ -145,8 +236,10 @@ export function AuthPage({ onBack }: AuthPageProps) {
 
                   {mode === 'signup' && (
                     <motion.div variants={itemVars} className="space-y-1.5">
-                      <label className="text-sm font-medium text-snow/80">Name</label>
+                      <label htmlFor="name" className="text-sm font-medium text-snow/80">Name</label>
                       <input
+                        id="name"
+                        name="name"
                         type="text"
                         placeholder="John Doe"
                         className="w-full rounded-2xl border border-snow/10 bg-charcoal/40 px-4 py-3.5 text-snow outline-none transition-colors placeholder:text-snow/30 focus:border-mint focus:bg-charcoal/60 focus:ring-1 focus:ring-mint"
@@ -155,8 +248,10 @@ export function AuthPage({ onBack }: AuthPageProps) {
                   )}
                   
                   <motion.div variants={itemVars} className="space-y-1.5">
-                    <label className="text-sm font-medium text-snow/80">Email</label>
+                    <label htmlFor="email" className="text-sm font-medium text-snow/80">Email</label>
                     <input
+                      id="email"
+                      name="email"
                       type="email"
                       required
                       placeholder="you@example.com"
@@ -165,11 +260,14 @@ export function AuthPage({ onBack }: AuthPageProps) {
                   </motion.div>
 
                   <motion.div variants={itemVars} className="space-y-1.5">
-                    <label className="text-sm font-medium text-snow/80">Password</label>
+                    <label htmlFor="password" className="text-sm font-medium text-snow/80">Password</label>
                     <input
+                      id="password"
+                      name="password"
                       type="password"
                       required
                       placeholder="••••••••"
+                      minLength={8}
                       className="w-full rounded-2xl border border-snow/10 bg-charcoal/40 px-4 py-3.5 text-snow outline-none transition-colors placeholder:text-snow/30 focus:border-mint focus:bg-charcoal/60 focus:ring-1 focus:ring-mint"
                     />
                   </motion.div>
@@ -216,5 +314,22 @@ export function AuthPage({ onBack }: AuthPageProps) {
         </div>
       </div>
     </motion.div>
+  )
+}
+
+export function AuthPage({ onBack }: AuthPageProps) {
+  // If no Google Client ID is configured, show a setup message
+  if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID === 'your-google-client-id-here.apps.googleusercontent.com') {
+    return (
+      <GoogleOAuthProvider clientId="demo-client-id">
+        <AuthPageContent onBack={onBack} />
+      </GoogleOAuthProvider>
+    )
+  }
+
+  return (
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <AuthPageContent onBack={onBack} />
+    </GoogleOAuthProvider>
   )
 }

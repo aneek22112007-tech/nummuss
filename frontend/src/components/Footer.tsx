@@ -2,15 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import { BracketLabel } from './ui/BracketLabel'
 import { FlipButton } from './ui/FlipButton'
 import { Reveal } from './ui/Reveal'
-import { SplitHeading } from './ui/SplitHeading'
 import { footer } from '../data/content'
 
 gsap.registerPlugin(ScrollTrigger)
 
-/** Newsletter capture + the oversized wordmark that rises on scroll. */
+/** Multi-column footer + email capture + oversized NUMMUSS wordmark. */
 export function Footer() {
   const [email, setEmail] = useState('')
   const [subscribed, setSubscribed] = useState(false)
@@ -43,23 +41,24 @@ export function Footer() {
 
   return (
     <footer className="rule-top">
-      <div className="grid gap-[clamp(28px,5vw,72px)] px-[clamp(20px,4vw,64px)] pt-[clamp(80px,12vh,140px)] pb-10 lg:grid-cols-[1.1fr_0.9fr]">
-        <Reveal className="flex flex-col gap-4">
-          <BracketLabel>{footer.label}</BracketLabel>
-          <SplitHeading
-            className="text-[clamp(38px,5.6vw,84px)]"
-            lines={[
-              footer.headingLines[0],
-              <span key="cf" className="text-mint">
-                {footer.headingLines[1]}
-              </span>,
-              footer.headingLines[2],
-            ]}
-          />
-          <p className="max-w-[44ch] text-snow/60">{footer.note}</p>
+      {/* Top grid: email form + 4-column nav */}
+      <div className="grid gap-[clamp(40px,7vw,100px)] px-[clamp(20px,4vw,64px)] pt-[clamp(80px,12vh,140px)] pb-16 lg:grid-cols-[1.2fr_1fr]">
+
+        {/* Left — CTA + email form */}
+        <Reveal className="flex flex-col gap-5">
+          <div className="flex flex-col gap-2">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-snow/35">
+              [ Stay in the loop ]
+            </p>
+            <h2 className="font-display text-[clamp(36px,5.2vw,78px)] uppercase leading-[0.94]">
+              Follow the{' '}
+              <span className="text-mint">Build.</span>
+            </h2>
+          </div>
+          <p className="max-w-[44ch] text-[clamp(15px,1.4vw,18px)] text-snow/55">{footer.note}</p>
 
           <form
-            className="mt-8 flex flex-wrap gap-2.5"
+            className="mt-4 flex flex-wrap gap-2.5"
             onSubmit={(event) => {
               event.preventDefault()
               setSubscribed(true)
@@ -73,64 +72,55 @@ export function Footer() {
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="your@email.com"
-              aria-label="Email"
-              className="min-w-[260px] rounded-full border border-snow/25 bg-transparent px-5.5 py-3.5 outline-none transition-colors placeholder:text-snow/40 focus:border-mint"
+              aria-label="Email address for updates"
+              className="min-w-[240px] rounded-full border border-snow/25 bg-transparent px-5.5 py-3.5 outline-none transition-colors placeholder:text-snow/35 focus:border-mint"
             />
             <FlipButton type="submit" variant="solid">
-              Submit
+              Stay Updated
             </FlipButton>
           </form>
         </Reveal>
 
-        <Reveal delay={0.1} className="flex flex-col gap-2">
-          <span className="mb-1.5 text-[13px] uppercase tracking-[0.14em] text-snow/40">
-            [&nbsp;{footer.exploreLabel}&nbsp;]
-          </span>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {footer.exploreLinks.map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                className="font-display text-[clamp(20px,2.2vw,30px)] uppercase leading-tight opacity-85 transition-[color,padding,opacity] duration-300 hover:pl-2 hover:text-mint hover:opacity-100"
-              >
-                {link.label}
-              </a>
+        {/* Right — 4-column link nav */}
+        <Reveal delay={0.1}>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-4">
+            {footer.columns.map((col) => (
+              <div key={col.label} className="flex flex-col gap-3">
+                <span className="text-[11px] uppercase tracking-[0.16em] text-snow/35">
+                  {col.label}
+                </span>
+                {col.links.map((link) => (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    className="text-[14px] text-snow/60 transition-colors duration-200 hover:text-mint"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </div>
             ))}
           </div>
         </Reveal>
       </div>
 
-      <div className="grid gap-4 px-[clamp(20px,4vw,64px)] pb-15 md:grid-cols-3">
-        {footer.community.map((card, index) => (
-          <Reveal key={card.name} delay={index * 0.08}>
-            <a
-              href={card.href}
-              className="group flex min-h-[170px] flex-col justify-between rounded-[20px] border border-snow/10 p-6.5 transition-[border-color,transform] duration-300 hover:-translate-y-1 hover:border-mint"
-            >
-              <span className="font-display text-2xl uppercase">{card.name}</span>
-              <span className="text-[12.5px] text-snow/40">{card.desc}</span>
-              <span className="self-end text-snow/60 transition-all duration-300 group-hover:translate-x-1 group-hover:-translate-y-1 group-hover:text-mint">
-                &#8599;
-              </span>
-            </a>
-          </Reveal>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap justify-between gap-4 border-t border-snow/10 px-5.5 py-5.5 text-[12px] text-snow/40">
+      {/* Legal strip */}
+      <div className="flex flex-wrap justify-between gap-4 border-t border-snow/8 px-[clamp(20px,4vw,64px)] py-4 text-[11px] text-snow/35">
         <span>{footer.legalLeft}</span>
         <span>{footer.legalRight}</span>
       </div>
 
+      {/* Oversized NUMMUSS wordmark — parallax scroll-rise */}
       <div
         ref={wordRef}
         aria-hidden="true"
-        className="select-none px-0 pb-0 text-center font-display text-[clamp(120px,26vw,460px)] leading-[0.78] tracking-[-0.01em] text-snow/95"
+        className="select-none overflow-hidden text-center font-display text-[clamp(120px,26vw,460px)] leading-[0.78] tracking-[-0.01em] text-snow/90"
       >
         {footer.bigWordLeft}
         <span className="text-mint">{footer.bigWordRight}</span>
       </div>
 
+      {/* Toast on subscribe */}
       <AnimatePresence>
         {subscribed && (
           <motion.div

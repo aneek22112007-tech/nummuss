@@ -223,7 +223,14 @@ export function Counterfactual() {
 
         <div className="mb-[clamp(40px,7vh,80px)] flex max-w-[1200px] flex-col gap-5">
           <BracketLabel>{mockContent.label}</BracketLabel>
-          <SplitHeading className="max-w-[16ch] text-[clamp(38px,6.5vw,92px)]" lines={mockContent.headingLines} />
+          <SplitHeading
+            className="max-w-[16ch] text-[clamp(38px,6.5vw,92px)]"
+            lines={[
+              'What Did',
+              <span key="d" className="text-mint">Discipline</span>,
+              'Change?',
+            ]}
+          />
           <p className="max-w-[62ch] text-[clamp(17px,1.5vw,21px)] text-snow/60">{mockContent.lead}</p>
         </div>
 
@@ -234,10 +241,13 @@ export function Counterfactual() {
             <div className="overflow-hidden rounded-[22px] border border-snow/10">
               <div className="flex items-center justify-between border-b border-snow/10 px-5.5 py-4 text-[11px] uppercase tracking-[0.18em] text-snow/40">
                 <span>India Replay · same NIFTY evidence</span>
-                <span className="flex items-center gap-2 text-mint">
-                  <i className="h-1.75 w-1.75 animate-blink rounded-full bg-mint" />
-                  {cfLoading ? 'Loading…' : 'Live'}
-                </span>
+                <div className="flex items-center gap-4">
+                  <span className="rounded-full border border-amber/30 px-2 py-0.5 text-[9px] text-amber/80">Controlled Simulation</span>
+                  <span className="flex items-center gap-2 text-mint">
+                    <i className="h-1.75 w-1.75 animate-blink rounded-full bg-mint" />
+                    {cfLoading ? 'Loading…' : 'Live'}
+                  </span>
+                </div>
               </div>
 
               <div className="grid grid-cols-[1fr_100px_100px] px-5.5 py-2.5 text-[10px] uppercase tracking-[0.16em] text-snow/40">

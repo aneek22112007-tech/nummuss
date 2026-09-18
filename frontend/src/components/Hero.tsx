@@ -118,21 +118,24 @@ export function Hero({ onTryClick }: { onTryClick?: () => void }) {
               <FlipButton onClick={onTryClick} variant="mint" size="lg">
                 Try Nummuss
               </FlipButton>
-              <FlipButton href={hero.secondaryCta.href} size="lg">
-                {hero.secondaryCta.label}
+              <FlipButton href={hero.primaryCta.href} size="lg">
+                {hero.primaryCta.label}
               </FlipButton>
             </motion.div>
           </div>
 
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 animate-hint text-[11px] uppercase tracking-[0.3em] text-snow/40">
-            Scroll to enter
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 animate-hint flex flex-col items-center gap-1.5">
+            <span className="text-[10px] uppercase tracking-[0.3em] text-snow/35">Scroll</span>
+            <svg width="12" height="18" viewBox="0 0 12 18" fill="none" aria-hidden="true">
+              <path d="M6 0v14M1 9l5 9 5-9" stroke="rgba(245,244,239,0.35)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </div>
         </div>
 
         {/* scrub position readout — the "frame N / 300" style caption the
             reference site uses to signal the scene is scroll-driven */}
-        <div className="pointer-events-none absolute right-[clamp(20px,4vw,64px)] bottom-6 z-20 hidden text-[11px] uppercase tracking-[0.24em] text-snow/35 md:block">
-          Scroll-driven scene
+        <div className="pointer-events-none absolute right-[clamp(20px,4vw,64px)] bottom-6 z-20 hidden text-[10px] uppercase tracking-[0.24em] text-snow/30 md:block">
+          Behavioral Safety Layer · Scroll-driven
         </div>
       </div>
     </section>

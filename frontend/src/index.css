@@ -18,6 +18,7 @@
   --animate-marquee: marquee 30s linear infinite;
   --animate-blink: blink 1.6s ease-in-out infinite;
   --animate-hint: pulse-hint 2.2s ease-in-out infinite;
+  --animate-scan: scan-line 3s linear infinite;
 }
 
 @keyframes marquee {
@@ -60,14 +61,43 @@
     opacity: 0;
   }
 }
+@keyframes scan-line {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.5;
+  }
+  90% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateY(400%);
+    opacity: 0;
+  }
+}
+@keyframes flow-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
 
 /* ============================================================
    Base
-
-   NOTE: these resets must live in @layer base. Unlayered rules sit
-   *above* Tailwind's layers in the cascade, so an unlayered
-   `button { color: inherit }` would silently beat `text-charcoal`
-   on every button.
    ============================================================ */
 @layer base {
   html {
@@ -91,7 +121,8 @@
   }
 
   button,
-  input {
+  input,
+  textarea {
     font: inherit;
     color: inherit;
   }
@@ -102,10 +133,10 @@
 }
 
 /* ============================================================
-   Component primitives (things Tailwind utilities express poorly)
+   Component primitives
    ============================================================ */
 
-/* BOS-style flip-hover button: two stacked labels slide past each other */
+/* BOS-style flip-hover button */
 .btn-flip {
   position: relative;
   display: inline-block;
@@ -156,7 +187,7 @@
   letter-spacing: 0.02em;
 }
 
-/* outlined display numeral (87.7%) that fills in when scrolled into view */
+/* outlined display numeral that fills in when scrolled into view */
 .text-outline {
   color: transparent;
   -webkit-text-stroke: 1.5px rgb(245 244 239 / 0.4);
@@ -229,7 +260,8 @@
 }
 .pipe-node.is-active.is-gate {
   border-color: var(--color-mint);
-  background-color: rgb(2 250 106 / 0.12);
+  background-color: rgb(2 250 106 / 0.08);
+  box-shadow: 0 0 0 1px rgba(2, 250, 106, 0.15), inset 0 0 24px rgba(2, 250, 106, 0.04);
 }
 .pipe-node.is-active.is-gate .pipe-tag {
   border-color: var(--color-mint);
@@ -239,17 +271,99 @@
 /* image panel that swaps as the pipeline advances */
 .orb-img {
   opacity: 0;
-  transform: scale(1.05);
+  transform: scale(1.04);
   transition:
-    opacity 0.8s ease,
-    transform 6s linear;
+    opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 7s linear;
 }
 .orb-img.is-active {
   opacity: 1;
-  transform: scale(1.12);
+  transform: scale(1.11);
 }
 
-/* Lenis */
+/* ============================================================
+   Scenario visual states (Pipeline "A Different Outcome" section)
+   ============================================================ */
+.scenario-panel {
+  opacity: 0;
+  transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  position: absolute;
+  inset: 0;
+}
+.scenario-panel.is-active {
+  opacity: 1;
+}
+
+/* ============================================================
+   Gates — animated mini-visual elements
+   ============================================================ */
+.gate-flow-item {
+  animation: flow-in 0.4s ease forwards;
+  opacity: 0;
+}
+.gate-flow-item:nth-child(1) { animation-delay: 0.1s; }
+.gate-flow-item:nth-child(2) { animation-delay: 0.3s; }
+.gate-flow-item:nth-child(3) { animation-delay: 0.5s; }
+
+.gate-scan-line {
+  position: absolute;
+  inset-x: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-mint), transparent);
+  animation: scan-line 3s linear infinite;
+  opacity: 0;
+}
+.gate-card:hover .gate-scan-line {
+  opacity: 1;
+}
+
+/* ============================================================
+   Final CTA — clip-path line reveals
+   ============================================================ */
+.final-line {
+  display: block;
+  overflow: hidden;
+}
+.final-line-inner {
+  display: block;
+  transform: translateY(105%);
+  transition: transform 1.1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.final-line.is-revealed .final-line-inner {
+  transform: translateY(0);
+}
+
+/* ============================================================
+   Security verification terminal
+   ============================================================ */
+.sec-terminal {
+  background: #060807;
+  border: 1px solid rgb(245 244 239 / 0.1);
+  border-radius: 18px;
+  overflow: hidden;
+}
+.sec-flow-arrow {
+  color: rgb(245 244 239 / 0.3);
+  font-size: 11px;
+  text-align: center;
+  letter-spacing: 0.12em;
+  padding: 6px 0;
+}
+.sec-blocked {
+  color: var(--color-danger);
+  background: rgba(255, 77, 61, 0.1);
+  border: 1px solid rgba(255, 77, 61, 0.3);
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   Lenis
+   ============================================================ */
 html.lenis,
 html.lenis body {
   height: auto;
@@ -335,13 +449,7 @@ html.lenis body {
   margin: 0;
 }
 
-/* ============================================================
-   Skeleton / shimmer loading state
-   ============================================================ */
-@keyframes shimmer {
-  from { background-position: -200% 0; }
-  to   { background-position: 200% 0; }
-}
+/* Skeleton shimmer */
 .skeleton {
   background: linear-gradient(
     90deg,
@@ -354,7 +462,7 @@ html.lenis body {
   border-radius: 8px;
 }
 
-/* Clickable decision rows in Counterfactual */
+/* Clickable decision rows */
 .decision-row-btn {
   width: 100%;
   text-align: left;
@@ -372,3 +480,26 @@ html.lenis body {
   background: rgb(245 244 239 / 0.03);
 }
 
+/* ============================================================
+   Reduced motion — collapse cinematic motion to fades
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .orb-img,
+  .pipe-node,
+  .scenario-panel,
+  .final-line-inner {
+    transition: opacity 0.3s ease !important;
+    transform: none !important;
+    animation: none !important;
+  }
+  .chart-path {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+  .animate-marquee {
+    animation: none !important;
+  }
+  .gate-scan-line {
+    animation: none !important;
+  }
+}
