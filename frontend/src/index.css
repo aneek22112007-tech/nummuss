@@ -260,3 +260,115 @@ html.lenis body {
 .lenis.lenis-stopped {
   overflow: hidden;
 }
+
+/* ============================================================
+   Decision Drawer
+   ============================================================ */
+.decision-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgb(8 9 8 / 0.72);
+  backdrop-filter: blur(4px);
+}
+.decision-drawer-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 90;
+  width: min(520px, 100vw);
+  display: flex;
+  flex-direction: column;
+  background: #0e100f;
+  border-left: 1px solid rgb(245 244 239 / 0.1);
+  box-shadow: -24px 0 64px rgb(0 0 0 / 0.6);
+}
+.decision-drawer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 28px 28px 20px;
+  border-bottom: 1px solid rgb(245 244 239 / 0.08);
+  flex-shrink: 0;
+}
+.decision-drawer-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  border: 1px solid rgb(245 244 239 / 0.15);
+  background: transparent;
+  color: rgb(245 244 239 / 0.55);
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s, color 0.2s;
+  flex-shrink: 0;
+}
+.decision-drawer-close:hover {
+  background: rgb(245 244 239 / 0.08);
+  color: var(--color-snow);
+}
+.decision-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(245 244 239 / 0.15) transparent;
+}
+.drawer-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.drawer-section-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: rgb(245 244 239 / 0.35);
+  margin: 0;
+}
+
+/* ============================================================
+   Skeleton / shimmer loading state
+   ============================================================ */
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgb(245 244 239 / 0.05) 0%,
+    rgb(245 244 239 / 0.12) 40%,
+    rgb(245 244 239 / 0.05) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+  border-radius: 8px;
+}
+
+/* Clickable decision rows in Counterfactual */
+.decision-row-btn {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.18s;
+  border-bottom: 1px solid rgb(245 244 239 / 0.05);
+}
+.decision-row-btn:last-child {
+  border-bottom: none;
+}
+.decision-row-btn:hover {
+  background: rgb(245 244 239 / 0.03);
+}
+
