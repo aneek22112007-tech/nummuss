@@ -4,3 +4,4 @@ preview/
 .DS_Store
 *.local
 .vite/
+.env
