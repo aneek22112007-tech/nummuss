@@ -69,6 +69,12 @@ class BackendStack(Stack):
         # 2. COMPUTE: LAMBDA FUNCTIONS
         # ==========================================
 
+        common_layer = _lambda.LayerVersion(
+            self, "CommonLayer",
+            code=_lambda.Code.from_asset("lambdas"),
+            compatible_runtimes=[_lambda.Runtime.PYTHON_3_11]
+        )
+
         # Fetch Signal Lambda
         fetch_signal_lambda = _lambda.Function(
             self, "FetchSignalLambda",
@@ -77,8 +83,10 @@ class BackendStack(Stack):
             handler="app.handler",
             environment={
                 "DDB_SIGNALS_TABLE": signals_table.table_name,
-                "S3_EVIDENCE_BUCKET": evidence_bucket.bucket_name
+                "S3_EVIDENCE_BUCKET": evidence_bucket.bucket_name,
+                "PYTHONPATH": "/var/runtime:/opt"
             },
+            layers=[common_layer],
             dead_letter_queue_enabled=True,
             dead_letter_queue=dlq,
             timeout=Duration.seconds(30)
@@ -97,8 +105,10 @@ class BackendStack(Stack):
                 "DDB_DECISIONS_TABLE": decisions_table.table_name,
                 "DDB_SIGNALS_TABLE": signals_table.table_name,
                 "S3_EVIDENCE_BUCKET": evidence_bucket.bucket_name,
-                "BEDROCK_MODEL_ID": "anthropic.claude-3-haiku-20240307-v1:0"
+                "BEDROCK_MODEL_ID": "anthropic.claude-3-haiku-20240307-v1:0",
+                "PYTHONPATH": "/var/runtime:/opt"
             },
+            layers=[common_layer],
             timeout=Duration.seconds(60),
             dead_letter_queue_enabled=True,
             dead_letter_queue=dlq
@@ -121,8 +131,10 @@ class BackendStack(Stack):
             handler="app.handler",
             environment={
                 "DDB_DECISIONS_TABLE": decisions_table.table_name,
-                "DDB_SHADOW_TABLE": shadow_table.table_name
-            }
+                "DDB_SHADOW_TABLE": shadow_table.table_name,
+                "PYTHONPATH": "/var/runtime:/opt"
+            },
+            layers=[common_layer]
         )
 
         decisions_table.grant_read_data(api_handler_lambda)
