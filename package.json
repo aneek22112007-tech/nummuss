@@ -1,0 +1,32 @@
+{
+  "name": "nummuss-landing",
+  "private": true,
+  "version": "5.0.0",
+  "type": "module",
+  "description": "Nummuss landing page — a React + TypeScript rebuild of the bitcoinos.build scroll experience, with content from the Nummuss PRD v5.0.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "build:preview": "node scripts/build-preview.mjs",
+    "render:hero": "node scripts/render-hero-video.mjs",
+    "typecheck": "tsc -b",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "gsap": "^3.12.5",
+    "lenis": "^1.1.14",
+    "motion": "^11.11.17",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/node": "^26.6.1",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.3"
+  }
+}

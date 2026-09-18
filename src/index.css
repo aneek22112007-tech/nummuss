@@ -1,0 +1,262 @@
+@import 'tailwindcss';
+
+/* ============================================================
+   NUMMUSS — theme tokens (mirrors the BitcoinOS design system)
+   ============================================================ */
+@theme {
+  --color-snow: #f5f4ef;
+  --color-charcoal: #0b0d0c;
+  --color-charcoal-soft: #111412;
+  --color-ink: #080908;
+  --color-mint: #02fa6a;
+  --color-danger: #ff4d3d;
+  --color-amber: #ffb84d;
+
+  --font-display: 'Anton', system-ui, sans-serif;
+  --font-body: 'Space Grotesk', system-ui, sans-serif;
+
+  --animate-marquee: marquee 30s linear infinite;
+  --animate-blink: blink 1.6s ease-in-out infinite;
+  --animate-hint: pulse-hint 2.2s ease-in-out infinite;
+}
+
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+@keyframes pulse-hint {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: translate(-50%, 0);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, 6px);
+  }
+}
+@keyframes draw-path {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes caret {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ============================================================
+   Base
+
+   NOTE: these resets must live in @layer base. Unlayered rules sit
+   *above* Tailwind's layers in the cascade, so an unlayered
+   `button { color: inherit }` would silently beat `text-charcoal`
+   on every button.
+   ============================================================ */
+@layer base {
+  html {
+    scroll-behavior: auto;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-charcoal);
+    color: var(--color-snow);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: var(--color-mint);
+    color: var(--color-charcoal);
+  }
+
+  button,
+  input {
+    font: inherit;
+    color: inherit;
+  }
+
+  canvas {
+    display: block;
+  }
+}
+
+/* ============================================================
+   Component primitives (things Tailwind utilities express poorly)
+   ============================================================ */
+
+/* BOS-style flip-hover button: two stacked labels slide past each other */
+.btn-flip {
+  position: relative;
+  display: inline-block;
+  padding: 14px 26px;
+  border-radius: 999px;
+  border: 1px solid rgb(245 244 239 / 0.25);
+  background: transparent;
+  cursor: pointer;
+  overflow: hidden;
+  user-select: none;
+  white-space: nowrap;
+}
+.btn-flip__face {
+  position: relative;
+  display: block;
+  overflow: hidden;
+}
+.btn-flip__face > span {
+  display: block;
+  transition: transform 0.45s cubic-bezier(0.76, 0, 0.24, 1);
+}
+.btn-flip__face > span:last-child {
+  position: absolute;
+  inset: 0;
+  transform: translateY(110%);
+}
+.btn-flip:hover .btn-flip__face > span:first-child {
+  transform: translateY(-110%);
+}
+.btn-flip:hover .btn-flip__face > span:last-child {
+  transform: translateY(0);
+}
+.btn-flip--solid {
+  background: var(--color-snow);
+  color: var(--color-charcoal);
+  border-color: var(--color-snow);
+}
+.btn-flip--mint {
+  background: var(--color-mint);
+  color: var(--color-charcoal);
+  border-color: var(--color-mint);
+  font-weight: 700;
+}
+.btn-flip--lg {
+  padding: 18px 36px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* outlined display numeral (87.7%) that fills in when scrolled into view */
+.text-outline {
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgb(245 244 239 / 0.4);
+  transition: color 1.2s 0.2s ease;
+}
+.text-outline.is-revealed {
+  color: var(--color-snow);
+}
+
+/* tabular audit table rows */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* twin curves chart grid */
+.chart-grid {
+  background-image: linear-gradient(rgb(245 244 239 / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(245 244 239 / 0.05) 1px, transparent 1px);
+  background-size: 100% 25%, 8.33% 100%;
+}
+.chart-path {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-dasharray: 700;
+  stroke-dashoffset: 700;
+}
+.chart-path.is-drawn {
+  animation: draw-path 2.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* blinking terminal caret + live dots */
+.caret {
+  display: inline-block;
+  width: 8px;
+  height: 16px;
+  background: var(--color-mint);
+  vertical-align: -2px;
+  animation: caret 1s steps(1) infinite;
+}
+
+/* pinstripe rule used between sections */
+.rule-top {
+  border-top: 1px solid rgb(245 244 239 / 0.1);
+}
+
+/* hide scrollbar on the horizontal replay rail */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+/* ============================================================
+   Pinned pipeline (state toggled imperatively by ScrollTrigger)
+   ============================================================ */
+.pipe-node {
+  opacity: 0.22;
+  transform: translateY(10px) scale(0.985);
+  transition:
+    opacity 0.5s ease,
+    transform 0.5s ease,
+    border-color 0.5s ease,
+    background-color 0.5s ease;
+}
+.pipe-node.is-active {
+  opacity: 1;
+  transform: none;
+  border-color: rgb(245 244 239 / 0.25);
+}
+.pipe-node.is-active.is-gate {
+  border-color: var(--color-mint);
+  background-color: rgb(2 250 106 / 0.12);
+}
+.pipe-node.is-active.is-gate .pipe-tag {
+  border-color: var(--color-mint);
+  color: var(--color-mint);
+}
+
+/* image panel that swaps as the pipeline advances */
+.orb-img {
+  opacity: 0;
+  transform: scale(1.05);
+  transition:
+    opacity 0.8s ease,
+    transform 6s linear;
+}
+.orb-img.is-active {
+  opacity: 1;
+  transform: scale(1.12);
+}
+
+/* Lenis */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
