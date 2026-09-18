@@ -76,9 +76,28 @@ export function Shadow() {
     } catch (err) {
       // Graceful deterministic fallback from keyword matching
       const lower = idea.toLowerCase()
-      const isBlocked =
-        lower.includes('lost twice') || lower.includes('double my size') ||
-        lower.includes('revenge') || lower.includes('tip') || lower.includes('all in')
+      
+      let verdict = 'allowed'
+      let guardrail_layer: 'behavioral' | 'evidence' | null = null
+      let reason_label = 'evidence-backed, within position cap'
+      let explanation = 'Simulated trade allowed. Passes Layer 1 evidence gate and Layer 2 behavioral bounds. (offline fallback)'
+
+      if (lower.includes('lost twice') || lower.includes('double my size') || lower.includes('revenge')) {
+        verdict = 'blocked'
+        guardrail_layer = 'behavioral'
+        reason_label = 'revenge trading'
+        explanation = 'Simulated trade blocked by the cooldown rule after 2 consecutive losses and position size multiplier > 2x. (offline fallback)'
+      } else if (lower.includes('single headline') || lower.includes('tip') || lower.includes('rumor')) {
+        verdict = 'blocked'
+        guardrail_layer = 'evidence'
+        reason_label = 'trading on hunch'
+        explanation = 'Simulated trade blocked by Layer 1 evidence consistency gate due to single uncorroborated source. (offline fallback)'
+      } else if (lower.includes('all in') || lower.includes('100%') || lower.includes('50%')) {
+        verdict = 'blocked'
+        guardrail_layer = 'behavioral'
+        reason_label = 'oversized conviction bet'
+        explanation = 'Simulated trade blocked by position cap (trade size > 5% of simulated portfolio). (offline fallback)'
+      }
 
       setLiveResult({
         query_id: `shq-local-${Date.now()}`,
@@ -86,12 +105,10 @@ export function Shadow() {
         submitted_by: 'public',
         symbol: symbol.toUpperCase(),
         idea,
-        verdict: isBlocked ? 'blocked' : 'allowed',
-        guardrail_layer: isBlocked ? 'behavioral' : null,
-        reason_label: isBlocked ? 'revenge trading / hunch' : 'evidence-backed, within position cap',
-        explanation: isBlocked
-          ? 'Blocked by behavioral engine (offline fallback).'
-          : 'Allowed — passes simulated Layer 1 & 2 checks (offline fallback).',
+        verdict: verdict as 'blocked' | 'allowed',
+        guardrail_layer,
+        reason_label,
+        explanation,
       })
       setLiveError('API unreachable — verdict computed locally.')
       setVerdictState('done')

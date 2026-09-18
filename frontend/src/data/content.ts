@@ -478,11 +478,7 @@ export const footer = {
     { label: 'Failure Modes', href: '#modes' },
     { label: 'Shadow Challenge', href: '#shadow' },
   ],
-  community: [
-    { name: 'GitHub', desc: 'Public repo · architecture · write-up', href: '#' },
-    { name: 'YouTube', desc: '3-minute demo · every feature shown', href: '#' },
-    { name: 'X', desc: 'Build log · First Commit 2026', href: '#' },
-  ],
+  community: [],
   legalLeft: 'Simulation only · No real capital · Not investment advice',
   legalRight: '\u00a92026 Nummuss · First Commit · AWS Ship It',
   bigWordLeft: 'NUMMU',
