@@ -40,7 +40,7 @@ export default function Decisions() {
               onClick={() => setActionFilter(action)}
               className={`px-4 py-2 rounded-lg text-sm font-medium uppercase tracking-wide transition-colors ${
                 actionFilter === action
-                  ? 'bg-amber text-charcoal'
+                  ? 'bg-snow text-charcoal'
                   : 'bg-[#111412] text-snow/60 hover:text-snow border border-snow/10'
               }`}
             >
@@ -57,9 +57,7 @@ export default function Decisions() {
               onClick={() => setAgentFilter(agent)}
               className={`px-4 py-2 rounded-lg text-sm font-medium uppercase tracking-wide transition-colors ${
                 agentFilter === agent
-                  ? agent === 'disciplined'
-                    ? 'bg-mint text-charcoal'
-                    : 'bg-danger text-charcoal'
+                  ? 'bg-snow/10 text-snow border border-snow/20'
                   : 'bg-[#111412] text-snow/60 hover:text-snow border border-snow/10'
               }`}
             >
@@ -72,12 +70,12 @@ export default function Decisions() {
       {/* Decision List */}
       {loading ? (
         <div className="text-center py-12 text-snow/40">Loading decisions...</div>
-      ) : (
+      ) : filteredDecisions.length > 0 ? (
         <div className="space-y-3">
           {filteredDecisions.map((decision) => {
             const isBlocked = decision.guardrail_result === 'blocked'
             const actionColor =
-              decision.action === 'buy' ? 'text-mint' : decision.action === 'sell' ? 'text-danger' : 'text-amber'
+              decision.action === 'buy' ? 'bg-mint' : decision.action === 'sell' ? 'bg-danger' : 'bg-snow/40'
 
             return (
               <Link
@@ -88,15 +86,22 @@ export default function Decisions() {
                 <div className="flex items-center justify-between gap-4">
                   {/* Left: Symbol + Action */}
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-lg bg-[#060807] border border-snow/10 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-lg bg-snow/5 border border-snow/10 flex items-center justify-center">
                       <span className="text-xs font-mono font-bold text-snow/80">{decision.symbol.slice(0, 3)}</span>
                     </div>
                     <div>
-                      <p className="text-lg font-mono font-bold text-snow">{decision.symbol}</p>
-                      <p className={`text-sm font-semibold uppercase tracking-wide ${actionColor}`}>
-                        {decision.action}
-                        {isBlocked && <span className="ml-2 text-xs text-danger/70">[BLOCKED]</span>}
-                      </p>
+                      <p className="text-base font-mono font-bold text-snow">{decision.symbol}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <div className={`w-1.5 h-1.5 rounded-full ${actionColor}`} />
+                        <p className="text-xs font-semibold uppercase tracking-wide text-snow/80">
+                          {decision.action}
+                        </p>
+                        {isBlocked && (
+                          <span className="ml-1 text-[10px] uppercase border border-snow/20 px-1.5 py-0.5 rounded text-snow/60 font-medium">
+                            BLOCKED
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -118,13 +123,17 @@ export default function Decisions() {
                       })}
                     </p>
                     {decision.guardrail_layer && (
-                      <p className="text-xs text-amber font-mono mt-1">{decision.guardrail_layer}</p>
+                      <p className="text-xs text-snow/80 font-mono mt-1">{decision.guardrail_layer}</p>
                     )}
                   </div>
                 </div>
               </Link>
             )
           })}
+        </div>
+      ) : (
+        <div className="bg-[#111412] border border-snow/10 rounded-2xl p-8 text-center text-snow/40 h-64 flex items-center justify-center">
+          No decisions found for the selected filters
         </div>
       )}
 

@@ -54,7 +54,7 @@ export function TopBar() {
         {/* Mode */}
         <div className="flex items-center gap-2">
           <span className="text-snow/40 uppercase tracking-wider">MODE</span>
-          <span className="text-amber font-medium">LIVE PAPER / INDIA REPLAY</span>
+          <span className="text-snow/80 font-medium">LIVE PAPER / INDIA REPLAY</span>
         </div>
 
         {/* Status */}

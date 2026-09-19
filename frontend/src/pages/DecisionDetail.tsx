@@ -23,7 +23,7 @@ export default function DecisionDetail() {
       <div className="p-8 max-w-[1000px] mx-auto">
         <div className="text-center py-12">
           <p className="text-snow/40">Decision not found</p>
-          <Link to="/decisions" className="text-amber hover:text-amber/80 mt-4 inline-block">
+          <Link to="/decisions" className="text-snow/80 hover:text-snow/80/80 mt-4 inline-block">
             ← Back to Decisions
           </Link>
         </div>
@@ -60,7 +60,7 @@ export default function DecisionDetail() {
         <DetailField 
           label="ACTION" 
           value={decision.action.toUpperCase()} 
-          color={decision.action === 'buy' ? 'text-mint' : decision.action === 'sell' ? 'text-danger' : 'text-amber'} 
+          color={decision.action === 'buy' ? 'text-mint' : decision.action === 'sell' ? 'text-danger' : 'text-snow/80'} 
         />
       </div>
 
@@ -70,7 +70,7 @@ export default function DecisionDetail() {
           <p className="text-xs uppercase tracking-widest text-snow/40 mb-4">CONFIDENCE</p>
           <p className={`text-2xl font-mono font-bold capitalize ${
             decision.confidence_tier === 'high' ? 'text-mint' : 
-            decision.confidence_tier === 'medium' ? 'text-amber' : 'text-danger'
+            decision.confidence_tier === 'medium' ? 'text-snow/80' : 'text-danger'
           }`}>
             {decision.confidence_tier}
           </p>
@@ -81,7 +81,7 @@ export default function DecisionDetail() {
           <p className="text-xs uppercase tracking-widest text-snow/40 mb-4">EVIDENCE QUALITY</p>
           <p className={`text-2xl font-mono font-bold capitalize ${
             decision.evidence_quality === 'strong' ? 'text-mint' : 
-            decision.evidence_quality === 'medium' ? 'text-amber' : 'text-danger'
+            decision.evidence_quality === 'medium' ? 'text-snow/80' : 'text-danger'
           }`}>
             {decision.evidence_quality}
           </p>
@@ -124,7 +124,7 @@ export default function DecisionDetail() {
               <p className="text-lg font-bold text-danger mb-2">WHERE DID NUMMUSS INTERVENE?</p>
               <p className="text-snow/80 mb-4">{decision.guardrail_reason_label || 'Behavioral check triggered'}</p>
               <p className="text-sm text-snow/60">
-                <span className="font-bold">WHY?</span> The guardrail layer <span className="font-mono text-amber">{decision.guardrail_layer}</span> detected a behavioral risk pattern that violated safety constraints.
+                <span className="font-bold">WHY?</span> The guardrail layer <span className="font-mono text-snow/80">{decision.guardrail_layer}</span> detected a behavioral risk pattern that violated safety constraints.
               </p>
             </div>
           </div>

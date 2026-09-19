@@ -48,9 +48,13 @@ export default function Overview() {
           <p className="text-2xl font-display text-snow">Portfolio Comparison</p>
         </div>
 
-        {twinData && (
+        {twinData ? (
           <div className="bg-[#111412] border border-snow/10 rounded-2xl p-8">
             <TwinChart data={twinData} chartRef={chartRef} />
+          </div>
+        ) : (
+          <div className="bg-[#111412] border border-snow/10 rounded-2xl p-8 text-center text-snow/40 h-64 flex items-center justify-center">
+            No portfolio data available
           </div>
         )}
       </div>
@@ -61,24 +65,24 @@ export default function Overview() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <MetricCard
             label="SIGNALS REVIEWED"
-            value={counterfactual?.trades_attempted || 87}
+            value={counterfactual?.trades_attempted || 0}
             unit="signals"
           />
           <MetricCard
             label="TRADES TAKEN"
-            value={counterfactual?.trades_taken.disciplined || 41}
+            value={counterfactual?.trades_taken?.disciplined || 0}
             unit="trades"
-            color="mint"
+            color="snow"
           />
           <MetricCard
             label="GUARDRAIL BLOCKS"
-            value={counterfactual?.guardrail_blocks.disciplined || 46}
+            value={counterfactual?.guardrail_blocks?.disciplined || 0}
             unit="interventions"
-            color="amber"
+            color="snow"
           />
           <MetricCard
             label="EXPOSURE AVOIDED"
-            value={`₹${((counterfactual?.exposure_avoided_inr || 142000) / 1000).toFixed(0)}k`}
+            value={`₹${((counterfactual?.exposure_avoided_inr || 0) / 1000).toFixed(0)}k`}
             unit=""
             color="mint"
           />
@@ -89,35 +93,39 @@ export default function Overview() {
       <div>
         <h2 className="text-sm uppercase tracking-widest text-snow/40 mb-6">RECENT INTERVENTIONS</h2>
         <div className="space-y-3">
-          {recentInterventions.map((decision) => (
-            <div
-              key={decision.decision_id}
-              className="bg-[#111412] border border-snow/10 rounded-xl p-4 hover:border-amber/30 transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="px-3 py-1 bg-amber/10 border border-amber/30 rounded-lg">
-                    <span className="text-xs font-bold text-amber uppercase tracking-wide">BLOCKED</span>
+          {recentInterventions.length > 0 ? (
+            recentInterventions.map((decision) => (
+              <div
+                key={decision.decision_id}
+                className="bg-[#111412] border border-snow/10 rounded-xl p-4 hover:border-snow/20 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="px-3 py-1 bg-snow/5 border border-snow/10 rounded-lg">
+                      <span className="text-xs font-bold text-snow/60 uppercase tracking-wide">BLOCKED</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-snow">{decision.symbol}</p>
+                      <p className="text-xs text-snow/50 mt-0.5">
+                        {decision.guardrail_reason_label || 'Behavioral check'}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-snow">{decision.symbol}</p>
-                    <p className="text-xs text-snow/50 mt-0.5">
-                      {decision.guardrail_reason_label || 'Behavioral check'}
+                  <div className="text-right">
+                    <p className="text-xs text-snow/40">
+                      {new Date(decision.timestamp).toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
                     </p>
+                    <p className="text-xs text-snow/40 mt-0.5">{decision.guardrail_layer}</p>
                   </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-snow/40">
-                    {new Date(decision.timestamp).toLocaleTimeString('en-US', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </p>
-                  <p className="text-xs text-snow/40 mt-0.5">{decision.guardrail_layer}</p>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          ) : (
+            <div className="text-snow/40 text-sm py-4">No recent interventions.</div>
+          )}
         </div>
       </div>
     </div>
@@ -219,7 +227,6 @@ function MetricCard({ label, value, unit, color = 'snow' }: any) {
   const colorMap = {
     snow: 'text-snow',
     mint: 'text-mint',
-    amber: 'text-amber',
     danger: 'text-danger',
   }
 

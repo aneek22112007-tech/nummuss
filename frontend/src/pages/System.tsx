@@ -4,16 +4,7 @@
  */
 
 export default function System() {
-  const services = [
-    { name: 'EVENTBRIDGE', status: 'ONLINE', color: 'mint' },
-    { name: 'LAMBDA', status: 'ONLINE', color: 'mint' },
-    { name: 'S3', status: 'ONLINE', color: 'mint' },
-    { name: 'DYNAMODB', status: 'ONLINE', color: 'mint' },
-    { name: 'BEDROCK', status: 'CONNECTED', color: 'mint' },
-    { name: 'BEDROCK GUARDRAILS', status: 'ACTIVE', color: 'mint' },
-    { name: 'API GATEWAY', status: 'ONLINE', color: 'mint' },
-    { name: 'CLOUDWATCH', status: 'MONITORING', color: 'amber' },
-  ]
+  const services: any[] = []
 
   return (
     <div className="p-8 max-w-[1400px] mx-auto space-y-12">
@@ -24,17 +15,21 @@ export default function System() {
 
       {/* Service Status Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {services.map((service) => (
-          <div key={service.name} className="bg-[#111412] border border-snow/10 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className={`w-2 h-2 rounded-full ${service.color === 'mint' ? 'bg-mint' : 'bg-amber'} animate-pulse`} />
-              <p className={`text-xs font-bold uppercase tracking-wide ${service.color === 'mint' ? 'text-mint' : 'text-amber'}`}>
-                {service.status}
-              </p>
+        {services.length > 0 ? (
+          services.map((service) => (
+            <div key={service.name} className="bg-[#111412] border border-snow/10 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`w-2 h-2 rounded-full ${service.color === 'mint' ? 'bg-mint' : 'bg-snow/60'} animate-pulse`} />
+                <p className="text-xs font-bold uppercase tracking-wide text-snow/60">
+                  {service.status}
+                </p>
+              </div>
+              <p className="text-sm text-snow font-medium">{service.name}</p>
             </div>
-            <p className="text-sm text-snow font-medium">{service.name}</p>
-          </div>
-        ))}
+          ))
+        ) : (
+          <div className="text-snow/40 text-sm py-4 col-span-full">No system metrics available.</div>
+        )}
       </div>
 
       {/* Architecture Diagram */}
@@ -97,7 +92,7 @@ function StackCard({ label, value, desc }: { label: string; value: string; desc:
   return (
     <div className="bg-[#111412] border border-snow/10 rounded-xl p-6">
       <p className="text-xs uppercase tracking-widest text-snow/40 mb-2">{label}</p>
-      <p className="text-lg font-mono font-bold text-mint">{value}</p>
+      <p className="text-lg font-mono font-bold text-snow">{value}</p>
       <p className="text-xs text-snow/50 mt-1">{desc}</p>
     </div>
   )

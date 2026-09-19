@@ -12,22 +12,34 @@ export default function Counterfactual() {
     return <div className="p-8 text-center text-snow/40">Loading...</div>
   }
 
-  if (!data) return null
+  if (!data) {
+    return (
+      <div className="p-8 max-w-[1400px] mx-auto space-y-12">
+        <div>
+          <h1 className="text-4xl font-display text-snow mb-4">Counterfactual Evidence</h1>
+          <p className="text-2xl text-snow/80">WHAT DID DISCIPLINE PREVENT?</p>
+        </div>
+        <div className="bg-[#111412] border border-snow/10 rounded-2xl p-8 text-center text-snow/40 h-64 flex items-center justify-center">
+          No counterfactual data available
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-8 max-w-[1400px] mx-auto space-y-12">
       {/* Header */}
       <div>
         <h1 className="text-4xl font-display text-snow mb-4">Counterfactual Evidence</h1>
-        <p className="text-2xl text-amber">WHAT DID DISCIPLINE PREVENT?</p>
+        <p className="text-2xl text-snow/80">WHAT DID DISCIPLINE PREVENT?</p>
       </div>
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <MetricCard label="BLOCKED ACTIONS" value={data.guardrail_blocks.disciplined} color="amber" />
-        <MetricCard label="EXPOSURE AVOIDED" value={`₹${(data.exposure_avoided_inr / 1000).toFixed(0)}k`} color="mint" />
+        <MetricCard label="BLOCKED ACTIONS" value={data.guardrail_blocks.disciplined} />
+        <MetricCard label="EXPOSURE AVOIDED" value={`₹${(data.exposure_avoided_inr / 1000).toFixed(0)}k`} />
         <MetricCard label="TRADE DIFFERENCE" value={`${data.trades_taken.twin - data.trades_taken.disciplined}`} />
-        <MetricCard label="CAPITAL DIFFERENCE" value={`₹${(data.capital_difference_inr / 1000).toFixed(0)}k`} color="mint" />
+        <MetricCard label="CAPITAL DIFFERENCE" value={`₹${(data.capital_difference_inr / 1000).toFixed(0)}k`} />
       </div>
 
       {/* Comparison Grid */}
@@ -44,8 +56,8 @@ export default function Counterfactual() {
             <div key={behavior.label} className="bg-[#111412] border border-snow/10 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-danger/10 border border-danger/30 flex items-center justify-center">
-                    <span className="text-lg font-bold text-danger">{i + 1}</span>
+                  <div className="w-10 h-10 rounded-lg bg-snow/5 border border-snow/10 flex items-center justify-center">
+                    <span className="text-lg font-bold text-snow/60">{i + 1}</span>
                   </div>
                   <div>
                     <p className="text-lg font-bold text-snow">{behavior.label}</p>
@@ -53,13 +65,13 @@ export default function Counterfactual() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-3xl font-mono font-bold text-amber">{behavior.count}</p>
+                  <p className="text-3xl font-mono font-bold text-snow/80">{behavior.count}</p>
                   <p className="text-xs text-snow/40">BLOCKS</p>
                 </div>
               </div>
               <div className="h-2 bg-snow/5 rounded-full overflow-hidden">
                 <div 
-                  className="h-full bg-amber rounded-full transition-all duration-700"
+                  className="h-full bg-snow rounded-full transition-all duration-700"
                   style={{ width: `${(behavior.count / data.guardrail_blocks.disciplined) * 100}%` }}
                 />
               </div>
@@ -69,10 +81,10 @@ export default function Counterfactual() {
       </div>
 
       {/* Summary */}
-      <div className="bg-amber/10 border-2 border-amber rounded-2xl p-8 text-center">
-        <p className="text-sm uppercase tracking-widest text-amber mb-3">FORENSIC CONCLUSION</p>
+      <div className="bg-snow/5 border-2 border-snow/10 rounded-2xl p-8 text-center">
+        <p className="text-sm uppercase tracking-widest text-snow/80 mb-3">FORENSIC CONCLUSION</p>
         <p className="text-2xl font-display text-snow">
-          Behavioral guardrails prevented <span className="text-amber">{data.guardrail_blocks.disciplined}</span> risky actions
+          Behavioral guardrails prevented <span className="text-snow/80">{data.guardrail_blocks.disciplined}</span> risky actions
         </p>
         <p className="text-snow/60 mt-2">
           Avoiding <span className="font-mono font-bold">₹{data.exposure_avoided_inr.toLocaleString()}</span> in potential losses
@@ -82,12 +94,11 @@ export default function Counterfactual() {
   )
 }
 
-function MetricCard({ label, value, color = 'snow' }: any) {
-  const colorMap = { snow: 'text-snow', mint: 'text-mint', amber: 'text-amber', danger: 'text-danger' }
+function MetricCard({ label, value }: any) {
   return (
     <div className="bg-[#111412] border border-snow/10 rounded-xl p-6">
       <p className="text-xs uppercase tracking-widest text-snow/40 mb-3">{label}</p>
-      <p className={`text-3xl font-mono font-bold ${colorMap[color as keyof typeof colorMap]} tabular`}>{value}</p>
+      <p className="text-3xl font-mono font-bold text-snow tabular">{value}</p>
     </div>
   )
 }
@@ -98,13 +109,19 @@ function ComparisonCard({ label, disciplined, twin }: any) {
       <p className="text-xs uppercase tracking-widest text-snow/40 mb-4">{label}</p>
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-mint/70 mb-1">DISCIPLINED</p>
-          <p className="text-2xl font-mono font-bold text-mint">{disciplined}</p>
+          <div className="flex items-center gap-1.5 mb-1">
+            <div className="w-1.5 h-1.5 rounded-full bg-mint" />
+            <p className="text-xs text-snow/60">DISCIPLINED</p>
+          </div>
+          <p className="text-2xl font-mono font-bold text-snow">{disciplined}</p>
         </div>
-        <span className="text-snow/30">vs</span>
+        <span className="text-snow/20 text-sm">vs</span>
         <div>
-          <p className="text-xs text-danger/70 mb-1">TWIN</p>
-          <p className="text-2xl font-mono font-bold text-danger">{twin}</p>
+          <div className="flex items-center gap-1.5 mb-1">
+            <div className="w-1.5 h-1.5 rounded-full bg-danger" />
+            <p className="text-xs text-snow/60">TWIN</p>
+          </div>
+          <p className="text-2xl font-mono font-bold text-snow">{twin}</p>
         </div>
       </div>
     </div>

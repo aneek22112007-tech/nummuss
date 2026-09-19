@@ -16,7 +16,7 @@ export default function Security() {
       {/* Test Fixture */}
       <div>
         <div className="flex items-center gap-3 mb-6">
-          <span className="px-3 py-1 bg-amber/10 border border-amber/30 rounded-lg text-xs font-bold text-amber uppercase">DELIBERATE FIXTURE</span>
+          <span className="px-3 py-1 bg-snow/5 border border-snow/10 rounded-lg text-xs font-bold text-snow/80 uppercase">DELIBERATE FIXTURE</span>
           <span className="px-3 py-1 bg-snow/10 border border-snow/30 rounded-lg text-xs font-bold text-snow/60 uppercase">TEST ONLY</span>
         </div>
 
@@ -40,8 +40,8 @@ export default function Security() {
 
           {/* Result */}
           <div className="pt-6 border-t border-snow/10 space-y-4">
-            <ResultRow label="RESULT" value="BLOCKED" color="text-danger" />
-            <ResultRow label="LAYER" value="CONTENT" color="text-amber" />
+            <ResultRow label="RESULT" value="BLOCKED" color="text-snow" dot="bg-danger" />
+            <ResultRow label="LAYER" value="CONTENT" color="text-snow/80" />
             <ResultRow label="TEST FIXTURE" value="TRUE" color="text-snow/60" />
           </div>
         </div>
@@ -50,23 +50,23 @@ export default function Security() {
       {/* Security Stats */}
       <div className="grid grid-cols-3 gap-6">
         <div className="bg-[#111412] border border-snow/10 rounded-xl p-6 text-center">
-          <p className="text-3xl font-mono font-bold text-mint">100%</p>
+          <p className="text-3xl font-mono font-bold text-snow">100%</p>
           <p className="text-xs text-snow/40 mt-2 uppercase tracking-wider">Malicious inputs blocked</p>
         </div>
         <div className="bg-[#111412] border border-snow/10 rounded-xl p-6 text-center">
-          <p className="text-3xl font-mono font-bold text-mint">0</p>
+          <p className="text-3xl font-mono font-bold text-snow">0</p>
           <p className="text-xs text-snow/40 mt-2 uppercase tracking-wider">Security breaches</p>
         </div>
         <div className="bg-[#111412] border border-snow/10 rounded-xl p-6 text-center">
-          <p className="text-3xl font-mono font-bold text-amber">&lt;50ms</p>
+          <p className="text-3xl font-mono font-bold text-snow/80">&lt;50ms</p>
           <p className="text-xs text-snow/40 mt-2 uppercase tracking-wider">Avg check time</p>
         </div>
       </div>
 
       {/* Explanation */}
-      <div className="bg-amber/10 border border-amber/30 rounded-xl p-6">
+      <div className="bg-snow/5 border border-snow/10 rounded-xl p-6">
         <p className="text-sm text-snow/80">
-          <span className="font-bold text-amber">Bedrock Guardrails</span> intercept all LLM inputs and outputs, blocking prompt injection, 
+          <span className="font-bold text-snow/80">Bedrock Guardrails</span> intercept all LLM inputs and outputs, blocking prompt injection, 
           jailbreak attempts, and malicious instructions before they reach the reasoning layer.
         </p>
       </div>
@@ -75,16 +75,14 @@ export default function Security() {
 }
 
 function PipelineStep({ step, status }: { step: string; status: string }) {
-  const color = status === 'blocked' ? 'border-danger bg-danger/10' : 
-                status === 'scanning' ? 'border-amber bg-amber/10' : 
-                'border-mint bg-mint/10'
+  const dotColor = status === 'blocked' ? 'bg-danger' : 
+                   status === 'scanning' ? 'bg-snow/40' : 
+                   'bg-mint'
   
   return (
-    <div className={`border-2 ${color} rounded-xl p-6 text-center`}>
-      <p className={`text-lg font-bold uppercase tracking-wide ${
-        status === 'blocked' ? 'text-danger' :
-        status === 'scanning' ? 'text-amber' : 'text-mint'
-      }`}>
+    <div className="border border-snow/10 bg-[#111412] rounded-xl p-6 flex items-center justify-center gap-3">
+      <div className={`w-2 h-2 rounded-full ${dotColor} ${status === 'scanning' ? 'animate-pulse' : ''}`} />
+      <p className="text-sm font-bold text-snow uppercase tracking-wide">
         {step}
       </p>
     </div>
@@ -101,11 +99,14 @@ function PipelineArrow() {
   )
 }
 
-function ResultRow({ label, value, color }: { label: string; value: string; color: string }) {
+function ResultRow({ label, value, color, dot }: { label: string; value: string; color: string; dot?: string }) {
   return (
     <div className="flex justify-between items-center">
       <span className="text-xs uppercase tracking-widest text-snow/40">{label}</span>
-      <span className={`text-sm font-mono font-bold ${color}`}>{value}</span>
+      <div className="flex items-center gap-2">
+        {dot && <div className={`w-1.5 h-1.5 rounded-full ${dot}`} />}
+        <span className={`text-sm font-mono font-bold ${color}`}>{value}</span>
+      </div>
     </div>
   )
 }
