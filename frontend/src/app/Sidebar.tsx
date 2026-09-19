@@ -24,7 +24,7 @@ export function Sidebar() {
   const { user, logout } = useAuth()
   
   return (
-    <aside className="w-64 bg-[#111412] border-r border-snow/10 flex flex-col">
+    <aside className="w-[280px] m-4 rounded-[32px] bg-white/5 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] flex flex-col overflow-hidden relative">
       {/* Logo / Brand */}
       <div className="p-6 border-b border-snow/10">
         <div className="mb-1">
@@ -44,12 +44,12 @@ export function Sidebar() {
               <NavLink
                 to={item.path}
                 className={({ isActive }) =>
-                  `flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium tracking-wide transition-all duration-200 ${
+                  `flex items-center justify-between px-4 py-3 mx-3 mb-1.5 rounded-2xl text-[13px] font-medium tracking-wide transition-all duration-300 ${
                     isActive
-                      ? 'bg-snow/5 text-snow border-l-2 border-mint pl-[10px]'
+                      ? 'bg-white/10 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] backdrop-blur-md'
                       : item.featured
-                      ? 'text-snow/80 hover:text-snow hover:bg-snow/5 border border-snow/10'
-                      : 'text-snow/60 hover:text-snow hover:bg-snow/5'
+                      ? 'text-snow/80 hover:text-snow hover:bg-white/5 border border-white/5'
+                      : 'text-snow/60 hover:text-snow hover:bg-white/5'
                   }`
                 }
               >
@@ -74,8 +74,8 @@ export function Sidebar() {
 
       {/* User Profile & Logout */}
       {user && (
-        <div className="px-4 py-3 mx-3 my-2 rounded-xl border border-snow/10 bg-snow/5 flex items-center justify-between">
-          <div className="flex items-center gap-2 overflow-hidden">
+        <div className="px-4 py-3 mx-4 my-4 rounded-[20px] border border-white/10 bg-white/5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] flex items-center justify-between backdrop-blur-md">
+          <div className="flex items-center gap-3 overflow-hidden">
             {user.picture ? (
               <img src={user.picture} alt={user.name} className="h-6 w-6 rounded-full" />
             ) : (
@@ -100,8 +100,8 @@ export function Sidebar() {
       )}
 
       {/* System Status */}
-      <div className="p-4 border-t border-snow/10">
-        <div className="flex items-center gap-2 mb-2">
+      <div className="p-6 border-t border-white/10 bg-black/20">
+        <div className="flex items-center gap-3 mb-2">
           <div className="w-2 h-2 rounded-full bg-mint animate-pulse" />
           <span className="text-xs text-mint font-medium">SYSTEM OPERATIONAL</span>
         </div>

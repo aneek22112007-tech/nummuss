@@ -155,8 +155,10 @@
   display: inline-block;
   padding: 14px 26px;
   border-radius: 999px;
-  border: 1px solid rgb(245 244 239 / 0.25);
-  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
   cursor: pointer;
   overflow: hidden;
   user-select: none;
@@ -183,14 +185,16 @@
   transform: translateY(0);
 }
 .btn-flip--solid {
-  background: var(--color-snow);
-  color: var(--color-charcoal);
-  border-color: var(--color-snow);
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--color-snow);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2);
 }
 .btn-flip--mint {
-  background: var(--color-mint);
-  color: var(--color-charcoal);
-  border-color: var(--color-mint);
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--color-snow);
+  border-color: rgba(34, 197, 94, 0.3);
+  box-shadow: inset 0 1px 1px rgba(34, 197, 94, 0.3);
   font-weight: 700;
 }
 .btn-flip--lg {
