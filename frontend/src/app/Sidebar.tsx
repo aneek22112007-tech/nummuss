@@ -46,7 +46,7 @@ export function Sidebar() {
                 className={({ isActive }) =>
                   `flex items-center justify-between px-4 py-3 mx-3 mb-1.5 rounded-2xl text-[13px] font-medium tracking-wide transition-all duration-300 ${
                     isActive
-                      ? 'bg-white/10 text-white'
+                      ? 'bg-mint/15 text-mint'
                       : item.featured
                       ? 'text-snow/80 hover:text-snow hover:bg-white/5'
                       : 'text-snow/60 hover:text-snow hover:bg-white/5'
@@ -56,13 +56,13 @@ export function Sidebar() {
                 <div className="flex items-center gap-2">
                   {item.featured && (
                     <span className="relative flex h-1.5 w-1.5">
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-snow/40" />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-current opacity-60" />
                     </span>
                   )}
                   <span>{item.name}</span>
                 </div>
                 {item.featured && (
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border border-snow/10 text-snow/60 tracking-wider">
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border border-current opacity-60 tracking-wider">
                     FLAGSHIP
                   </span>
                 )}
