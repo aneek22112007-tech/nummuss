@@ -2,17 +2,19 @@ from aws_cdk import (
     Duration,
     Stack,
     RemovalPolicy,
+    CfnOutput,
+    aws_bedrock as bedrock,
+    aws_cloudfront as cloudfront,
+    aws_cloudfront_origins as origins,
     aws_dynamodb as dynamodb,
     aws_s3 as s3,
+    aws_s3_deployment as s3deploy,
     aws_lambda as _lambda,
     aws_events as events,
     aws_events_targets as targets,
     aws_apigateway as apigateway,
     aws_iam as iam,
     aws_sqs as sqs,
-    aws_cloudfront as cloudfront,
-    aws_cloudfront_origins as origins,
-    aws_s3_deployment as s3deploy,
 )
 from constructs import Construct
 
@@ -21,6 +23,12 @@ class BackendStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        # Use `-c stage=prod` for production. Development stacks are disposable;
+        # production data is retained if the stack is ever removed.
+        stage = (self.node.try_get_context("stage") or "dev").lower()
+        is_production = stage == "prod"
+        data_removal_policy = RemovalPolicy.RETAIN if is_production else RemovalPolicy.DESTROY
+
         # ==========================================
         # 1. STORAGE: DYNAMODB & S3
         # ==========================================
@@ -28,19 +36,17 @@ class BackendStack(Stack):
         # Signals Ledger
         signals_table = dynamodb.Table(
             self, "NummussSignalsTable",
-            table_name="nummuss-signals",
             partition_key=dynamodb.Attribute(name="signal_id", type=dynamodb.AttributeType.STRING),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=RemovalPolicy.DESTROY
+            removal_policy=data_removal_policy
         )
 
         # Decisions Ledger
         decisions_table = dynamodb.Table(
             self, "NummussDecisionsTable",
-            table_name="nummuss-decisions",
             partition_key=dynamodb.Attribute(name="decision_id", type=dynamodb.AttributeType.STRING),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=RemovalPolicy.DESTROY
+            removal_policy=data_removal_policy
         )
         decisions_table.add_global_secondary_index(
             index_name="ModeAgentIndex",
@@ -51,22 +57,28 @@ class BackendStack(Stack):
         # Shadow Query Table
         shadow_table = dynamodb.Table(
             self, "NummussShadowTable",
-            table_name="nummuss-shadow",
             partition_key=dynamodb.Attribute(name="query_id", type=dynamodb.AttributeType.STRING),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=RemovalPolicy.DESTROY
+            removal_policy=data_removal_policy
         )
 
         # Evidence Bucket
         evidence_bucket = s3.Bucket(
             self, "NummussEvidenceBucket",
-            bucket_name=f"nummuss-evidence-{self.account}-{self.region}",
-            removal_policy=RemovalPolicy.DESTROY,
-            auto_delete_objects=True
+            encryption=s3.BucketEncryption.S3_MANAGED,
+            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
+            enforce_ssl=True,
+            removal_policy=data_removal_policy,
+            auto_delete_objects=not is_production
         )
 
         # DLQ
-        dlq = sqs.Queue(self, "NummussDLQ")
+        dlq = sqs.Queue(
+            self, "NummussDLQ",
+            encryption=sqs.QueueEncryption.SQS_MANAGED,
+            retention_period=Duration.days(14),
+            removal_policy=data_removal_policy
+        )
 
         # ==========================================
         # 2. COMPUTE: LAMBDA FUNCTIONS
@@ -92,7 +104,8 @@ class BackendStack(Stack):
             layers=[common_layer],
             dead_letter_queue_enabled=True,
             dead_letter_queue=dlq,
-            timeout=Duration.seconds(30)
+            timeout=Duration.seconds(30),
+            memory_size=256
         )
 
         signals_table.grant_write_data(fetch_signal_lambda)
@@ -113,18 +126,49 @@ class BackendStack(Stack):
             },
             layers=[common_layer],
             timeout=Duration.seconds(60),
+            memory_size=256,
             dead_letter_queue_enabled=True,
-            dead_letter_queue=dlq
+            dead_letter_queue=dlq,
+            retry_attempts=1
         )
 
         decisions_table.grant_write_data(reason_decide_lambda)
         signals_table.grant_read_data(reason_decide_lambda)
         evidence_bucket.grant_read(reason_decide_lambda)
 
+        content_guardrail = bedrock.CfnGuardrail(
+            self, "NummussContentGuardrail",
+            name=f"nummuss-{stage}-content-guardrail",
+            description="Blocks unsafe content and prompt attacks in Nummuss model requests.",
+            blocked_input_messaging="This request was blocked by the Nummuss safety policy.",
+            blocked_outputs_messaging="The model response was blocked by the Nummuss safety policy.",
+            content_policy_config=bedrock.CfnGuardrail.ContentPolicyConfigProperty(
+                filters_config=[
+                    bedrock.CfnGuardrail.ContentFilterConfigProperty(
+                        type=content_type,
+                        input_strength="HIGH",
+                        output_strength="HIGH"
+                    )
+                    for content_type in ["HATE", "INSULTS", "SEXUAL", "VIOLENCE", "MISCONDUCT", "PROMPT_ATTACK"]
+                ]
+            )
+        )
+        reason_decide_lambda.add_environment("BEDROCK_GUARDRAIL_ID", content_guardrail.attr_guardrail_id)
+        reason_decide_lambda.add_environment("BEDROCK_GUARDRAIL_VERSION", content_guardrail.attr_version)
         reason_decide_lambda.add_to_role_policy(iam.PolicyStatement(
-            actions=["bedrock:InvokeModel", "bedrock:ApplyGuardrail"],
-            resources=["*"]
+            actions=["bedrock:InvokeModel"],
+            resources=[
+                f"arn:{self.partition}:bedrock:{self.region}::foundation-model/anthropic.claude-3-haiku-20240307-v1:0"
+            ]
         ))
+        reason_decide_lambda.add_to_role_policy(iam.PolicyStatement(
+            actions=["bedrock:ApplyGuardrail"],
+            resources=[content_guardrail.attr_guardrail_arn]
+        ))
+
+        # Ingestion invokes reasoning only after it has persisted the latest signals.
+        fetch_signal_lambda.add_environment("REASON_DECIDE_FUNCTION_NAME", reason_decide_lambda.function_name)
+        reason_decide_lambda.grant_invoke(fetch_signal_lambda)
 
         # API Handler Lambda
         api_handler_lambda = _lambda.Function(
@@ -137,7 +181,9 @@ class BackendStack(Stack):
                 "DDB_SHADOW_TABLE": shadow_table.table_name,
                 "PYTHONPATH": "/var/runtime:/opt"
             },
-            layers=[common_layer]
+            layers=[common_layer],
+            timeout=Duration.seconds(15),
+            memory_size=256
         )
 
         decisions_table.grant_read_data(api_handler_lambda)
@@ -163,76 +209,104 @@ class BackendStack(Stack):
             ),
             deploy_options=apigateway.StageOptions(
                 throttling_rate_limit=10,
-                throttling_burst_limit=5
+                throttling_burst_limit=5,
+                metrics_enabled=False,
+                data_trace_enabled=False,
+                logging_level=apigateway.MethodLoggingLevel.ERROR
             )
         )
 
         api_integration = apigateway.LambdaIntegration(api_handler_lambda)
 
-        api_base = api.root.add_resource("api")
-
-        feed = api_base.add_resource("feed")
+        feed = api.root.add_resource("feed")
         feed.add_method("GET", api_integration)
 
-        decision = api_base.add_resource("decision")
+        decision = api.root.add_resource("decision")
         decision_id = decision.add_resource("{decision_id}")
         decision_id.add_method("GET", api_integration)
 
-        twin = api_base.add_resource("twin")
+        twin = api.root.add_resource("twin")
         twin.add_method("GET", api_integration)
 
-        counterfactual = api_base.add_resource("counterfactual")
+        counterfactual = api.root.add_resource("counterfactual")
         counterfactual.add_method("GET", api_integration)
 
-        replay = api_base.add_resource("replay")
+        replay = api.root.add_resource("replay")
         scenario = replay.add_resource("scenario")
         scenario_id = scenario.add_resource("{id}")
         scenario_id.add_method("GET", api_integration)
 
-        shadow = api_base.add_resource("shadow")
+        shadow = api.root.add_resource("shadow")
         shadow.add_method("POST", api_integration)
 
         # ==========================================
-        # 4. FRONTEND DEPLOYMENT (S3 & CLOUDFRONT)
+        # 4. FRONTEND: PRIVATE S3 + CLOUDFRONT
         # ==========================================
-
         frontend_bucket = s3.Bucket(
-            self, "FrontendBucket",
-            removal_policy=RemovalPolicy.DESTROY,
-            auto_delete_objects=True,
-            block_public_access=s3.BlockPublicAccess.BLOCK_ALL
+            self, "NummussFrontendBucket",
+            encryption=s3.BucketEncryption.S3_MANAGED,
+            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
+            enforce_ssl=True,
+            removal_policy=data_removal_policy,
+            auto_delete_objects=not is_production
+        )
+
+        # Keep API Gateway resources unprefixed while the public CloudFront
+        # endpoint exposes /api/*.
+        api_path_rewrite = cloudfront.Function(
+            self, "ApiPathRewrite",
+            runtime=cloudfront.FunctionRuntime.JS_2_0,
+            code=cloudfront.FunctionCode.from_inline(
+                "function handler(event) {\n"
+                "  var request = event.request;\n"
+                "  request.uri = request.uri.replace(/^\\/api(?=\\/|$)/, '');\n"
+                "  return request;\n"
+                "}"
+            )
         )
 
         distribution = cloudfront.Distribution(
             self, "NummussDistribution",
             default_root_object="index.html",
+            minimum_protocol_version=cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
+            price_class=cloudfront.PriceClass.PRICE_CLASS_200,
             default_behavior=cloudfront.BehaviorOptions(
-                origin=origins.S3Origin(frontend_bucket),
-                viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS
+                origin=origins.S3BucketOrigin.with_origin_access_control(frontend_bucket),
+                viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED
             ),
             error_responses=[
                 cloudfront.ErrorResponse(
-                    http_status=404,
+                    http_status=403,
+                    response_http_status=200,
                     response_page_path="/index.html",
-                    response_http_status=200
+                    ttl=Duration.minutes(5)
                 ),
                 cloudfront.ErrorResponse(
-                    http_status=403,
+                    http_status=404,
+                    response_http_status=200,
                     response_page_path="/index.html",
-                    response_http_status=200
+                    ttl=Duration.minutes(5)
                 )
-            ],
-            additional_behaviors={
-                "/api/*": cloudfront.BehaviorOptions(
-                    origin=origins.RestApiOrigin(api),
-                    viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
-                    allowed_methods=cloudfront.AllowedMethods.ALLOW_ALL,
-                    cache_policy=cloudfront.CachePolicy.CACHING_DISABLED,
-                    origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-                )
-            }
+            ]
         )
 
+        distribution.add_behavior(
+            "api/*",
+            origins.RestApiOrigin(api),
+            viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
+            allowed_methods=cloudfront.AllowedMethods.ALLOW_ALL,
+            cached_methods=cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
+            cache_policy=cloudfront.CachePolicy.CACHING_DISABLED,
+            origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+            function_associations=[cloudfront.FunctionAssociation(
+                event_type=cloudfront.FunctionEventType.VIEWER_REQUEST,
+                function=api_path_rewrite
+            )]
+        )
+
+        # Run `npm run build` in frontend/ before `cdk deploy`; the production
+        # Vite environment routes API calls through /api on this distribution.
         s3deploy.BucketDeployment(
             self, "DeployFrontend",
             sources=[s3deploy.Source.asset("../frontend/dist")],
@@ -240,3 +314,7 @@ class BackendStack(Stack):
             distribution=distribution,
             distribution_paths=["/*"]
         )
+        CfnOutput(self, "FrontendUrl", value=f"https://{distribution.distribution_domain_name}")
+        CfnOutput(self, "ApiUrl", value=api.url)
+        CfnOutput(self, "EvidenceBucketName", value=evidence_bucket.bucket_name)
+        CfnOutput(self, "GuardrailId", value=content_guardrail.attr_guardrail_id)

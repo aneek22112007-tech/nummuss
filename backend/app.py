@@ -7,7 +7,8 @@ from infrastructure.nummuss_stack import BackendStack
 
 
 app = cdk.App()
-BackendStack(app, "BackendStack",
+stage = app.node.try_get_context("stage") or "dev"
+BackendStack(app, f"Nummuss-{stage}",
     # If you don't specify 'env', this stack will be environment-agnostic.
     # Account/Region-dependent features and context lookups will not work,
     # but a single synthesized template can be deployed anywhere.

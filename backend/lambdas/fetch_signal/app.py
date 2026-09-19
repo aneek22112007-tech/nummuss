@@ -1,6 +1,7 @@
 import os
 import json
 import hashlib
+import uuid
 from datetime import datetime, timezone
 
 try:
@@ -18,6 +19,7 @@ except ImportError:
 
 DDB_SIGNALS_TABLE = os.environ.get("DDB_SIGNALS_TABLE", "nummuss-signals")
 S3_EVIDENCE_BUCKET = os.environ.get("S3_EVIDENCE_BUCKET", "nummuss-evidence")
+REASON_DECIDE_FUNCTION_NAME = os.environ.get("REASON_DECIDE_FUNCTION_NAME")
 
 def normalize_text(text: str) -> str:
     """Normalize text by stripping excessive whitespace and formatting."""
@@ -46,21 +48,25 @@ def handler(event, context):
     # Initialize AWS clients lazily
     dynamodb = None
     s3 = None
+    lambda_client = None
     if boto3 and (os.environ.get("AWS_EXECUTION_ENV") or os.environ.get("AWS_DEFAULT_REGION")):
         try:
             dynamodb = boto3.resource("dynamodb")
             s3 = boto3.client("s3")
+            lambda_client = boto3.client("lambda") if REASON_DECIDE_FUNCTION_NAME else None
         except Exception as e:
-            print(f"AWS client initialization warning: {e}")
+            raise RuntimeError(f"Unable to initialize AWS clients: {e}") from e
 
-    for idx, item in enumerate(raw_inputs):
+    for item in raw_inputs:
         symbol = item.get("symbol", "NIFTY50").upper()
         sig_type = item.get("type", "news")
         raw_content = item.get("content", "")
         
         normalized = normalize_text(raw_content)
         content_hash = hash_payload(normalized)
-        sig_id = f"sig-{symbol.lower()}-{content_hash[:8]}-{idx}"
+        # Keep each scheduled run auditable instead of overwriting a prior signal
+        # with the same fixture/content hash.
+        sig_id = f"sig-{symbol.lower()}-{content_hash[:8]}-{uuid.uuid4().hex[:12]}"
         s3_key = f"evidence/{symbol}/{sig_id}.json"
 
         signal_record = MarketSignal(
@@ -85,7 +91,7 @@ def handler(event, context):
                     ContentType="application/json"
                 )
             except Exception as err:
-                print(f"S3 PutObject error for {s3_key}: {err}")
+                raise RuntimeError(f"Unable to persist evidence {s3_key}: {err}") from err
 
         # Write to DynamoDB signals ledger
         if dynamodb:
@@ -93,9 +99,19 @@ def handler(event, context):
                 table = dynamodb.Table(DDB_SIGNALS_TABLE)
                 table.put_item(Item=record_dict)
             except Exception as err:
-                print(f"DynamoDB PutItem error for {sig_id}: {err}")
+                raise RuntimeError(f"Unable to persist signal {sig_id}: {err}") from err
 
         processed_signals.append(record_dict)
+
+    if lambda_client and REASON_DECIDE_FUNCTION_NAME:
+        try:
+            lambda_client.invoke(
+                FunctionName=REASON_DECIDE_FUNCTION_NAME,
+                InvocationType="Event",
+                Payload=json.dumps({"source": "nummuss.fetch_signal"}).encode("utf-8")
+            )
+        except Exception as err:
+            raise RuntimeError(f"Unable to invoke reason-and-decide Lambda: {err}") from err
 
     return {
         "statusCode": 200,

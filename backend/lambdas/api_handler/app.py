@@ -1,5 +1,6 @@
 import os
 import json
+import uuid
 from datetime import datetime, timezone
 
 try:
@@ -141,7 +142,7 @@ def handle_shadow(body_raw: str) -> dict:
     submitted_by = data.get("submitted_by", "public")
 
     now_iso = datetime.now(timezone.utc).isoformat()
-    query_id = f"shq-{int(datetime.now().timestamp())}"
+    query_id = f"shq-{uuid.uuid4().hex}"
 
     idea_lower = idea.lower()
     

@@ -1,5 +1,6 @@
 import os
 import json
+import uuid
 from datetime import datetime, timezone
 
 try:
@@ -71,6 +72,8 @@ def call_bedrock_claude(prompt_text: str) -> dict:
 
             response = bedrock.invoke_model(**kwargs)
             resp_body = json.loads(response.get("body").read().decode("utf-8"))
+            if resp_body.get("amazon-bedrock-guardrailAction") == "INTERVENED":
+                return {"guardrail_intervened": True}
             text_output = resp_body["content"][0]["text"]
             
             # Parse JSON from model output
@@ -81,17 +84,15 @@ def call_bedrock_claude(prompt_text: str) -> dict:
         except Exception as err:
             print(f"Bedrock invocation fallback/warning: {err}")
 
-    # Fallback deterministic reasoning dict
+    # A provider failure must fail closed: downstream logic will only create a
+    # HOLD decision unless the model response passed validation.
     return {
-        "action": "buy",
+        "action": "hold",
         "symbol": "NIFTY50",
-        "confidence_raw": 85,
-        "confidence_tier": "high",
-        "cited_symbols": ["NIFTY50"],
-        "cited_signals": [
-            {"signal_id": "sig-nifty-01", "excerpt": "NIFTY 50 50-DMA support"},
-            {"signal_id": "sig-nifty-02", "excerpt": "RBI Policy Update"}
-        ]
+        "confidence_raw": 0,
+        "confidence_tier": "low",
+        "cited_symbols": [],
+        "cited_signals": []
     }
 
 def handler(event, context):
@@ -120,6 +121,7 @@ Output only a valid JSON object with keys:
     # Detect malicious payload for Layer 0 Security Verification Test
     is_malicious_fixture = any("IGNORE PREVIOUS INSTRUCTIONS" in sig.content for sig in signals)
 
+    bedrock_guardrail_intervened = False
     if is_malicious_fixture:
         action = "hold"
         symbol = "NIFTY50"
@@ -131,15 +133,26 @@ Output only a valid JSON object with keys:
         evidence_quality = "weak"
     else:
         llm_decision = call_bedrock_claude(prompt)
-        action = llm_decision.get("action", "hold")
-        symbol = llm_decision.get("symbol", "NIFTY50")
-        confidence_raw = int(llm_decision.get("confidence_raw", 80))
-        confidence_tier = llm_decision.get("confidence_tier", "high")
-        cited_symbols = llm_decision.get("cited_symbols", [symbol])
-        cited_signals = llm_decision.get("cited_signals", [])
+        bedrock_guardrail_intervened = llm_decision.get("guardrail_intervened", False)
+        if bedrock_guardrail_intervened:
+            action = "hold"
+            symbol = "NIFTY50"
+            confidence_raw = 0
+            confidence_tier = "low"
+            cited_symbols = []
+            cited_signals = []
+            is_valid_l1 = False
+            evidence_quality = "weak"
+        else:
+            action = llm_decision.get("action", "hold")
+            symbol = llm_decision.get("symbol", "NIFTY50")
+            confidence_raw = int(llm_decision.get("confidence_raw", 0))
+            confidence_tier = llm_decision.get("confidence_tier", "low")
+            cited_symbols = llm_decision.get("cited_symbols", [])
+            cited_signals = llm_decision.get("cited_signals", [])
 
-        # Layer 1: Evidence Consistency Gate
-        is_valid_l1, evidence_quality, l1_msg = validate_evidence(cited_symbols, cited_signals, signals)
+            # Layer 1: Evidence Consistency Gate
+            is_valid_l1, evidence_quality, l1_msg = validate_evidence(cited_symbols, cited_signals, signals)
 
     records = []
     dynamodb = None
@@ -159,7 +172,7 @@ Output only a valid JSON object with keys:
         is_allowed = True
         test_fixture_flag = False
 
-        if is_malicious_fixture:
+        if is_malicious_fixture or bedrock_guardrail_intervened:
             guardrail_layer = "content"
             guardrail_result = "blocked_prompt_attack"
             reason_label = None
@@ -184,7 +197,7 @@ Output only a valid JSON object with keys:
                 guardrail_layer = "behavioral"
 
         trade_status = "simulated" if is_allowed else "rejected"
-        decision_id = f"dec-{role}-{int(datetime.now().timestamp())}"
+        decision_id = f"dec-{role}-{uuid.uuid4().hex}"
 
         sources = [SignalSource(signal_id=s.get("signal_id", "sig-1"), excerpt=s.get("excerpt", "")) for s in cited_signals]
 

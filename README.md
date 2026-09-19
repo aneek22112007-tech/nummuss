@@ -72,6 +72,11 @@ Nummuss is built natively on AWS using Serverless architecture:
 3. Configure environment variables in `.env`
 4. Run dev server: `npm run dev`
 
+### AWS deployment
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the exact AWS access required, Bedrock
+setup, budget controls, and the build/synth/deploy commands.
+
 ## Features
 
 - **India Replay Mode**: Scrub through historical NIFTY 50 scenarios and watch the twin agents diverge.
