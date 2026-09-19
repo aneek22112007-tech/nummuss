@@ -9,6 +9,11 @@ try:
 except ImportError:
     boto3 = None
 
+try:
+    import urllib.request as urllib_request
+except ImportError:
+    urllib_request = None
+
 # Import shared engine helpers
 try:
     from common.schemas import MarketSignal
@@ -20,6 +25,95 @@ except ImportError:
 DDB_SIGNALS_TABLE = os.environ.get("DDB_SIGNALS_TABLE", "nummuss-signals")
 S3_EVIDENCE_BUCKET = os.environ.get("S3_EVIDENCE_BUCKET", "nummuss-evidence")
 REASON_DECIDE_FUNCTION_NAME = os.environ.get("REASON_DECIDE_FUNCTION_NAME")
+ALPHA_VANTAGE_API_KEY = os.environ.get("ALPHA_VANTAGE_API_KEY", "")
+ALPHA_VANTAGE_SYMBOLS = os.environ.get("ALPHA_VANTAGE_SYMBOLS", "NIFTY50,RELIANCE,TCS")
+
+# ------------------------------------------------
+# Alpha Vantage helpers (stdlib urllib, no deps)
+# ------------------------------------------------
+
+def _av_get(params: dict) -> dict:
+    """Make a GET request to Alpha Vantage and return parsed JSON."""
+    params["apikey"] = ALPHA_VANTAGE_API_KEY
+    qs = "&".join(f"{k}={v}" for k, v in params.items())
+    url = f"https://www.alphavantage.co/query?{qs}"
+    req = urllib_request.Request(url, headers={"User-Agent": "nummuss/1.0"})
+    with urllib_request.urlopen(req, timeout=15) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _fetch_alpha_vantage_price(symbol: str) -> dict | None:
+    """
+    Fetch the latest intraday price candle for a symbol via Alpha Vantage
+    TIME_SERIES_INTRADAY. Returns a raw signal dict or None on failure.
+    Note: Alpha Vantage uses US ticker symbols. For Indian stocks use BSE/NSE
+    suffix e.g. RELIANCE.BSE. NIFTY50 is mapped to ^NSEI (not supported in
+    intraday, so we use GLOBALQUOTE as fallback).
+    """
+    try:
+        # Use GLOBAL_QUOTE for broad compatibility (works for Indian BSE tickers too)
+        data = _av_get({"function": "GLOBAL_QUOTE", "symbol": symbol})
+        quote = data.get("Global Quote", {})
+        price = quote.get("05. price", "N/A")
+        change_pct = quote.get("10. change percent", "N/A")
+        volume = quote.get("06. volume", "N/A")
+        if price == "N/A":
+            print(f"Alpha Vantage price: no data for {symbol}")
+            return None
+        content = (
+            f"{symbol} price ₹{price} ({change_pct}), "
+            f"volume {volume}. Source: Alpha Vantage GLOBAL_QUOTE."
+        )
+        return {"symbol": symbol, "type": "price", "content": content}
+    except Exception as err:
+        print(f"Alpha Vantage price fetch error for {symbol}: {err}")
+        return None
+
+
+def _fetch_alpha_vantage_news(symbol: str) -> list[dict]:
+    """
+    Fetch top 3 news headlines for a symbol via Alpha Vantage NEWS_SENTIMENT.
+    Returns a list of raw signal dicts.
+    """
+    results = []
+    try:
+        data = _av_get({
+            "function": "NEWS_SENTIMENT",
+            "tickers": symbol,
+            "limit": "3",
+            "sort": "LATEST"
+        })
+        feed = data.get("feed", [])
+        for article in feed[:3]:
+            title = article.get("title", "")
+            source = article.get("source", "Alpha Vantage News")
+            sentiment = article.get("overall_sentiment_label", "Neutral")
+            content = f"[{source}] {title} — Sentiment: {sentiment}."
+            results.append({"symbol": symbol, "type": "news", "content": content})
+    except Exception as err:
+        print(f"Alpha Vantage news fetch error for {symbol}: {err}")
+    return results
+
+
+def _build_live_signals(symbols: list[str]) -> list[dict]:
+    """
+    Fetch live price and news signals for each symbol from Alpha Vantage.
+    Falls back gracefully if any individual call fails.
+    """
+    raw_signals = []
+    for symbol in symbols:
+        price_sig = _fetch_alpha_vantage_price(symbol)
+        if price_sig:
+            raw_signals.append(price_sig)
+        news_sigs = _fetch_alpha_vantage_news(symbol)
+        raw_signals.extend(news_sigs)
+
+    if not raw_signals:
+        print("Alpha Vantage returned no data. Falling back to seed fixtures.")
+        return list(SEED_SIGNALS)
+
+    return raw_signals
+
 
 def normalize_text(text: str) -> str:
     """Normalize text by stripping excessive whitespace and formatting."""
@@ -35,16 +129,29 @@ def hash_payload(content: str) -> str:
 def handler(event, context):
     """
     fetch_signal Lambda Handler:
-    Fetches, normalizes, hashes, and stores market signals in DynamoDB & S3.
+    1. Fetches live price + news signals from Alpha Vantage (if API key is set),
+       or falls back to static seed fixtures.
+    2. Normalizes, hashes, and stores each signal in DynamoDB & S3.
+    3. Invokes reason_decide Lambda asynchronously.
     """
     print("Executing fetch_signal handler...")
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    # Determine input signals: from event, live news, or preselected fixtures
-    raw_inputs = event.get("signals") if isinstance(event, dict) and "signals" in event else SEED_SIGNALS
+    # Determine input signals
+    if isinstance(event, dict) and "signals" in event:
+        # Explicit signals injected via event (e.g. from a test)
+        raw_inputs = event["signals"]
+        print(f"Using {len(raw_inputs)} signals from event payload.")
+    elif ALPHA_VANTAGE_API_KEY:
+        symbols = [s.strip() for s in ALPHA_VANTAGE_SYMBOLS.split(",") if s.strip()]
+        print(f"Fetching live signals from Alpha Vantage for: {symbols}")
+        raw_inputs = _build_live_signals(symbols)
+    else:
+        print("No ALPHA_VANTAGE_API_KEY set. Using seed fixtures.")
+        raw_inputs = list(SEED_SIGNALS)
 
     processed_signals = []
-    
+
     # Initialize AWS clients lazily
     dynamodb = None
     s3 = None
@@ -61,11 +168,9 @@ def handler(event, context):
         symbol = item.get("symbol", "NIFTY50").upper()
         sig_type = item.get("type", "news")
         raw_content = item.get("content", "")
-        
+
         normalized = normalize_text(raw_content)
         content_hash = hash_payload(normalized)
-        # Keep each scheduled run auditable instead of overwriting a prior signal
-        # with the same fixture/content hash.
         sig_id = f"sig-{symbol.lower()}-{content_hash[:8]}-{uuid.uuid4().hex[:12]}"
         s3_key = f"evidence/{symbol}/{sig_id}.json"
 

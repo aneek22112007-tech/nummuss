@@ -29,6 +29,9 @@ DDB_DECISIONS_TABLE = os.environ.get("DDB_DECISIONS_TABLE", "nummuss-decisions")
 DDB_SIGNALS_TABLE = os.environ.get("DDB_SIGNALS_TABLE", "nummuss-signals")
 GROK_API_KEY = os.environ.get("GROK_API_KEY", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+MEGABULL_API_KEY = os.environ.get("MEGABULL_API_KEY", "")
+MEGABULL_BASE_URL = os.environ.get("MEGABULL_BASE_URL", "https://api.megabull.app/v1")
+MEGABULL_ORDER_QTY = int(os.environ.get("MEGABULL_ORDER_QTY", "1"))
 
 # --- LLM fallback chain: Grok (P1) → Gemini (P2) → deterministic hold ---
 _LLM_FALLBACK = {
@@ -47,6 +50,36 @@ def _http_post(url: str, headers: dict, payload: dict) -> dict:
     req = urllib_request.Request(url, data=body, headers=headers, method="POST")
     with urllib_request.urlopen(req, timeout=20) as resp:
         return json.loads(resp.read().decode("utf-8"))
+
+
+def _place_megabull_order(symbol: str, action: str, qty: int = 1) -> bool:
+    """
+    Place a paper trade order on MegaBull for Indian stocks.
+    Priority: disciplined agent approved trades only.
+    Returns True on success, False on failure (non-blocking).
+    """
+    if not MEGABULL_API_KEY or action == "hold":
+        return False
+    try:
+        url = f"{MEGABULL_BASE_URL}/orders"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {MEGABULL_API_KEY}",
+        }
+        payload = {
+            "symbol": symbol,
+            "side": action,   # "buy" or "sell"
+            "qty": qty,
+            "type": "market",
+            "product": "MIS",  # Intraday paper trade
+        }
+        resp = _http_post(url, headers, payload)
+        order_id = resp.get("order_id") or resp.get("id") or "unknown"
+        print(f"MegaBull paper order placed: {action.upper()} {qty}x {symbol} → order_id={order_id}")
+        return True
+    except Exception as err:
+        print(f"MegaBull order error (non-blocking): {err}")
+        return False
 
 
 def _parse_json_from_text(text: str) -> dict | None:
@@ -254,7 +287,14 @@ Output only a valid JSON object with keys:
             if not is_allowed:
                 guardrail_layer = "behavioral"
 
-        trade_status = "simulated" if is_allowed else "rejected"
+        trade_status = "rejected"
+        if is_allowed:
+            if role == "disciplined" and action != "hold":
+                # Attempt live paper trade via MegaBull
+                placed = _place_megabull_order(symbol, action, MEGABULL_ORDER_QTY)
+                trade_status = "filled" if placed else "simulated"
+            else:
+                trade_status = "simulated"
         decision_id = f"dec-{role}-{uuid.uuid4().hex}"
 
         sources = [SignalSource(signal_id=s.get("signal_id", "sig-1"), excerpt=s.get("excerpt", "")) for s in cited_signals]

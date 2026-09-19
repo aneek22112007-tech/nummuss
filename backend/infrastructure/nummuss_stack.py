@@ -99,6 +99,8 @@ class BackendStack(Stack):
             environment={
                 "DDB_SIGNALS_TABLE": signals_table.table_name,
                 "S3_EVIDENCE_BUCKET": evidence_bucket.bucket_name,
+                "ALPHA_VANTAGE_API_KEY": os.environ.get("ALPHA_VANTAGE_API_KEY", ""),
+                "ALPHA_VANTAGE_SYMBOLS": os.environ.get("ALPHA_VANTAGE_SYMBOLS", "NIFTY50,RELIANCE,TCS"),
                 "PYTHONPATH": "/var/runtime:/opt"
             },
             layers=[common_layer],
@@ -123,6 +125,9 @@ class BackendStack(Stack):
                 "S3_EVIDENCE_BUCKET": evidence_bucket.bucket_name,
                 "GROK_API_KEY": os.environ.get("GROK_API_KEY", ""),
                 "GEMINI_API_KEY": os.environ.get("GEMINI_API_KEY", ""),
+                "MEGABULL_API_KEY": os.environ.get("MEGABULL_API_KEY", ""),
+                "MEGABULL_BASE_URL": os.environ.get("MEGABULL_BASE_URL", "https://api.megabull.app/v1"),
+                "MEGABULL_ORDER_QTY": os.environ.get("MEGABULL_ORDER_QTY", "1"),
                 "PYTHONPATH": "/var/runtime:/opt"
             },
             layers=[common_layer],
