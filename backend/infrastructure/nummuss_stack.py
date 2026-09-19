@@ -10,6 +10,9 @@ from aws_cdk import (
     aws_apigateway as apigateway,
     aws_iam as iam,
     aws_sqs as sqs,
+    aws_cloudfront as cloudfront,
+    aws_cloudfront_origins as origins,
+    aws_s3_deployment as s3deploy,
 )
 from constructs import Construct
 
@@ -166,23 +169,74 @@ class BackendStack(Stack):
 
         api_integration = apigateway.LambdaIntegration(api_handler_lambda)
 
-        feed = api.root.add_resource("feed")
+        api_base = api.root.add_resource("api")
+
+        feed = api_base.add_resource("feed")
         feed.add_method("GET", api_integration)
 
-        decision = api.root.add_resource("decision")
+        decision = api_base.add_resource("decision")
         decision_id = decision.add_resource("{decision_id}")
         decision_id.add_method("GET", api_integration)
 
-        twin = api.root.add_resource("twin")
+        twin = api_base.add_resource("twin")
         twin.add_method("GET", api_integration)
 
-        counterfactual = api.root.add_resource("counterfactual")
+        counterfactual = api_base.add_resource("counterfactual")
         counterfactual.add_method("GET", api_integration)
 
-        replay = api.root.add_resource("replay")
+        replay = api_base.add_resource("replay")
         scenario = replay.add_resource("scenario")
         scenario_id = scenario.add_resource("{id}")
         scenario_id.add_method("GET", api_integration)
 
-        shadow = api.root.add_resource("shadow")
+        shadow = api_base.add_resource("shadow")
         shadow.add_method("POST", api_integration)
+
+        # ==========================================
+        # 4. FRONTEND DEPLOYMENT (S3 & CLOUDFRONT)
+        # ==========================================
+
+        frontend_bucket = s3.Bucket(
+            self, "FrontendBucket",
+            removal_policy=RemovalPolicy.DESTROY,
+            auto_delete_objects=True,
+            block_public_access=s3.BlockPublicAccess.BLOCK_ALL
+        )
+
+        distribution = cloudfront.Distribution(
+            self, "NummussDistribution",
+            default_root_object="index.html",
+            default_behavior=cloudfront.BehaviorOptions(
+                origin=origins.S3Origin(frontend_bucket),
+                viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS
+            ),
+            error_responses=[
+                cloudfront.ErrorResponse(
+                    http_status=404,
+                    response_page_path="/index.html",
+                    response_http_status=200
+                ),
+                cloudfront.ErrorResponse(
+                    http_status=403,
+                    response_page_path="/index.html",
+                    response_http_status=200
+                )
+            ],
+            additional_behaviors={
+                "/api/*": cloudfront.BehaviorOptions(
+                    origin=origins.RestApiOrigin(api),
+                    viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
+                    allowed_methods=cloudfront.AllowedMethods.ALLOW_ALL,
+                    cache_policy=cloudfront.CachePolicy.CACHING_DISABLED,
+                    origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+                )
+            }
+        )
+
+        s3deploy.BucketDeployment(
+            self, "DeployFrontend",
+            sources=[s3deploy.Source.asset("../frontend/dist")],
+            destination_bucket=frontend_bucket,
+            distribution=distribution,
+            distribution_paths=["/*"]
+        )
