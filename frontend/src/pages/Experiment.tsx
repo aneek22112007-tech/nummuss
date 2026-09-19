@@ -15,9 +15,9 @@ export default function Experiment() {
   if (!twinData) {
     return (
       <div className="p-8 max-w-[1400px] mx-auto space-y-12">
-        <div>
-          <h1 className="text-4xl font-display text-snow mb-4">The Experiment</h1>
-          <div className="text-xl text-snow/80 space-y-1 max-w-2xl">
+        <div className="mb-8">
+          <h1 className="text-5xl font-display text-snow mb-6 tracking-wide">The Experiment</h1>
+          <div className="text-sm font-medium tracking-widest text-snow/60 space-y-2 max-w-2xl">
             <p>SAME SIGNAL.</p>
             <p>SAME MODEL.</p>
             <p>SAME CODE PATH.</p>
@@ -33,9 +33,9 @@ export default function Experiment() {
   return (
     <div className="p-8 max-w-[1400px] mx-auto space-y-12">
       {/* Header */}
-      <div>
-        <h1 className="text-4xl font-display text-snow mb-4">The Experiment</h1>
-        <div className="text-xl text-snow/80 space-y-1 max-w-2xl">
+      <div className="mb-8">
+        <h1 className="text-5xl font-display text-snow mb-6 tracking-wide">The Experiment</h1>
+        <div className="text-sm font-medium tracking-widest text-snow/60 space-y-2 max-w-2xl">
           <p>SAME SIGNAL.</p>
           <p>SAME MODEL.</p>
           <p>SAME CODE PATH.</p>

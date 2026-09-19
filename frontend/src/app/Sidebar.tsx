@@ -54,11 +54,6 @@ export function Sidebar() {
                 }
               >
                 <div className="flex items-center gap-2">
-                  {item.featured && (
-                    <span className="relative flex h-1.5 w-1.5">
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-current opacity-60" />
-                    </span>
-                  )}
                   <span>{item.name}</span>
                 </div>
                 {item.featured && (
