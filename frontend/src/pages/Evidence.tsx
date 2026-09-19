@@ -51,34 +51,7 @@ export default function Evidence() {
         )}
       </div>
 
-      {/* Relationship Flow */}
-      <div className="bg-[#060807] border border-snow/10 rounded-2xl p-8">
-        <p className="text-sm uppercase tracking-widest text-snow/40 mb-6">EVIDENCE FLOW</p>
-        <div className="flex items-center justify-center gap-6">
-          <FlowBox label="EVIDENCE" sublabel="Multi-source" />
-          <FlowArrow />
-          <FlowBox label="DECISION" sublabel="Analyzed" />
-          <FlowArrow />
-          <FlowBox label="SAFETY" sublabel="Verified" />
-        </div>
-      </div>
     </div>
   )
 }
 
-function FlowBox({ label, sublabel }: { label: string; sublabel: string }) {
-  return (
-    <div className="bg-[#111412] border border-snow/10 rounded-xl p-6 text-center min-w-[140px]">
-      <p className="text-sm font-bold text-snow uppercase tracking-wide">{label}</p>
-      <p className="text-xs text-snow/50 mt-1">{sublabel}</p>
-    </div>
-  )
-}
-
-function FlowArrow() {
-  return (
-    <svg className="w-6 h-6 text-snow/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-    </svg>
-  )
-}
