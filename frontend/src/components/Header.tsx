@@ -39,7 +39,7 @@ export function Header({ onOpenMenu, menuOpen, onSignIn }: Props) {
         'fixed inset-x-0 top-0 z-40 flex items-center justify-between gap-4 px-[clamp(20px,4vw,64px)] py-4',
         'transition-[transform,background-color,border-color,backdrop-filter] duration-500',
         scrolled 
-          ? 'bg-white/5 backdrop-blur-2xl border-b border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.1)]' 
+          ? 'glass-panel !border-l-0 !border-r-0 !border-t-0 !rounded-none' 
           : 'bg-transparent border-b border-transparent',
         hidden ? '-translate-y-[110%]' : 'translate-y-0',
       ].join(' ')}
@@ -85,7 +85,7 @@ export function Header({ onOpenMenu, menuOpen, onSignIn }: Props) {
           {!isAuthenticated && (
             <button
               onClick={onSignIn}
-              className="rounded-full bg-white/10 backdrop-blur-md border border-white/20 px-6 py-2.5 text-[13px] font-bold tracking-wide text-snow shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] transition-all hover:bg-white/20 hover:scale-105 active:scale-95"
+              className="glass-button rounded-full px-6 py-2.5 text-[13px] font-bold tracking-wide text-snow"
             >
               Sign In
             </button>
@@ -128,7 +128,7 @@ export function Header({ onOpenMenu, menuOpen, onSignIn }: Props) {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2 }}
-                    className="absolute right-0 top-full mt-2 w-48 overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] backdrop-blur-2xl"
+                    className="absolute right-0 top-full mt-2 w-48 overflow-hidden rounded-2xl glass-panel"
                   >
                     <div className="border-b border-white/10 px-4 py-3">
                       <div className="text-xs font-medium text-snow">{user.name}</div>
@@ -176,7 +176,7 @@ export function Header({ onOpenMenu, menuOpen, onSignIn }: Props) {
         type="button"
         onClick={onOpenMenu}
         aria-label="Open menu"
-        className="fixed right-4 top-4 z-50 grid h-12 w-12 place-items-center rounded-full bg-white/10 text-snow border border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] backdrop-blur-2xl transition-all duration-300 hover:bg-white/20 lg:hidden"
+        className="fixed right-4 top-4 z-50 grid h-12 w-12 place-items-center rounded-full glass-button text-snow lg:hidden"
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M4 7H20M4 12H20M4 17H20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />

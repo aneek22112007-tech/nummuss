@@ -43,7 +43,7 @@ export function TopBar() {
   }
 
   return (
-    <header className="h-16 bg-[#111412] border-b border-snow/10 flex items-center justify-between px-6">
+    <header className="h-16 glass-panel !border-l-0 !border-r-0 !border-t-0 !rounded-none flex items-center justify-between px-6">
       {/* Current Page */}
       <div>
         <h2 className="text-sm font-medium text-snow tracking-wide">{pageName}</h2>
