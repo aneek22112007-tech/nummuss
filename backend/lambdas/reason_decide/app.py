@@ -160,9 +160,9 @@ Output only a valid JSON object with keys:
         test_fixture_flag = False
 
         if is_malicious_fixture:
-            guardrail_layer = "layer_0"
-            guardrail_result = "blocked"
-            reason_label = "SECURITY VERIFICATION TEST"
+            guardrail_layer = "content"
+            guardrail_result = "blocked_prompt_attack"
+            reason_label = None
             is_allowed = False
             test_fixture_flag = True
         elif not is_valid_l1:

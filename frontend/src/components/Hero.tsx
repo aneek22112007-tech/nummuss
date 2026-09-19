@@ -43,13 +43,26 @@ export function Hero({ onTryClick: _onTryClick }: { onTryClick?: () => void }) {
       copy.style.visibility = fade > 0.995 ? 'hidden' : 'visible'
     }
 
-    // a gentle push-in on the artwork keeps the handoff continuous
+    // A cinematic push-in without destroying the image quality
     const stage = stageRef.current
-    if (stage) stage.style.transform = `scale(${1 + progress * 0.06})`
+    if (stage) {
+      // Gentle scale to simulate moving forward
+      const zoom = progress * 0.4;
+      stage.style.transform = `scale(${1 + zoom})`;
+      
+      // Remove the blur/brightness filters that caused the white screen
+      stage.style.filter = 'none';
+      
+      // Fade out smoothly right at the end to blend perfectly into the dark Marquee
+      // Because we reduced the height to 150svh, this fade won't leave a huge black gap
+      const fadeVideo = progress > 0.85 ? (progress - 0.85) * 6.66 : 0;
+      stage.style.opacity = String(Math.max(0, 1 - fadeVideo));
+    }
   }, [])
 
+
   return (
-    <section id="top" ref={sectionRef} className="relative h-[220svh] bg-charcoal">
+    <section id="top" ref={sectionRef} className="relative h-[150svh] bg-charcoal">
       <div className="sticky top-0 h-[100svh] min-h-[560px] overflow-hidden">
         <div ref={stageRef} className="absolute inset-0 origin-center will-change-transform">
           <ScrollVideo
@@ -80,7 +93,12 @@ export function Hero({ onTryClick: _onTryClick }: { onTryClick?: () => void }) {
             {hero.badge}
           </motion.div>
 
-          <div className="flex h-full flex-col items-center justify-end gap-6.5 px-[clamp(20px,4vw,64px)] pb-[clamp(48px,9vh,96px)] text-center">
+          <motion.div 
+            className="flex h-full flex-col items-center justify-end gap-6.5 px-[clamp(20px,4vw,64px)] pb-[clamp(48px,9vh,96px)] text-center"
+            initial={{ scale: 0.4, opacity: 0, filter: 'blur(20px)' }}
+            animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
+            transition={{ duration: 1.8, ease: [0.22, 1, 0.36, 1] }}
+          >
             <h1 className="max-w-[14ch] font-display text-[clamp(44px,8.5vw,124px)] uppercase leading-[0.92]">
               {hero.titleLines.map((line, index) => (
                 <span key={line} className="block overflow-hidden">
@@ -90,7 +108,7 @@ export function Hero({ onTryClick: _onTryClick }: { onTryClick?: () => void }) {
                     animate={{ y: '0%', opacity: 1 }}
                     transition={{
                       duration: 1.1,
-                      delay: 0.2 + index * 0.12,
+                      delay: 0.4 + index * 0.12,
                       ease: [0.22, 1, 0.36, 1],
                     }}
                   >
@@ -104,7 +122,7 @@ export function Hero({ onTryClick: _onTryClick }: { onTryClick?: () => void }) {
               className="max-w-[52ch] text-[clamp(16px,1.6vw,20px)] text-snow/60"
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ delay: 0.8, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
             >
               {hero.subtitle}
             </motion.p>
@@ -113,16 +131,16 @@ export function Hero({ onTryClick: _onTryClick }: { onTryClick?: () => void }) {
               className="flex flex-wrap justify-center gap-3.5"
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.85, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ delay: 1.0, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
             >
-              <FlipButton href="/dashboard" variant="mint" size="lg">
-                Enter Nummuss
+              <FlipButton href="#shadow" variant="mint" size="lg">
+                Challenge Nummuss
               </FlipButton>
-              <FlipButton href={hero.primaryCta.href} size="lg">
-                {hero.primaryCta.label}
+              <FlipButton href="/dashboard" size="lg">
+                Enter Dashboard
               </FlipButton>
             </motion.div>
-          </div>
+          </motion.div>
 
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 animate-hint flex flex-col items-center gap-1.5">
             <span className="text-[10px] uppercase tracking-[0.3em] text-snow/35">Scroll</span>

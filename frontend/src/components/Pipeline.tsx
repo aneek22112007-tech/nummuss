@@ -29,7 +29,7 @@ export function Pipeline() {
     const list = listRef.current
     if (!wrap || !list) return
 
-    const nodes = Array.from(list.querySelectorAll<HTMLElement>('.pipe-node'))
+    const nodes = Array.from(list.querySelectorAll<HTMLElement>('.pipe-wrapper'))
     const images = Array.from(
       orbRef.current?.querySelectorAll<HTMLImageElement>('.orb-img') ?? [],
     )
@@ -70,14 +70,14 @@ export function Pipeline() {
   }, [])
 
   return (
-    <section id="experiment" className="rule-top">
+    <section id="experiment" className="rule-top bg-charcoal relative z-10">
       {/* tall wrapper gives the sticky child its scroll distance to scrub through */}
-      <div ref={wrapRef} className="relative h-[520svh]">
-        <div className="sticky top-0 flex h-[100svh] flex-col justify-center gap-[clamp(20px,4vh,44px)] overflow-hidden px-[clamp(20px,4vw,64px)] pt-20 pb-10">
+      <div ref={wrapRef} className="relative h-[150svh]">
+        <div className="sticky top-0 flex h-[100svh] flex-col justify-start gap-[clamp(12px,1.5vh,24px)] overflow-hidden px-[clamp(20px,4vw,64px)] pt-[clamp(32px,5vh,80px)] pb-[clamp(50px,8vh,100px)]">
           <BracketLabel>{pipelineCopy.label}</BracketLabel>
 
           <SplitHeading
-            className="text-[clamp(34px,5vw,72px)]"
+            className="text-[clamp(28px,4vw,64px)]"
             lines={[
               pipelineCopy.headingLines[0],
               pipelineCopy.headingLines[1],
@@ -87,37 +87,48 @@ export function Pipeline() {
             ]}
           />
 
-          <p className="max-w-[60ch] text-[clamp(15px,1.4vw,18px)] text-snow/60">
+          <p className="max-w-[60ch] text-[clamp(13px,1.2vw,16px)] text-snow/60">
             {pipelineCopy.lead}
           </p>
 
-          <div ref={listRef} className="mt-2 flex max-w-[760px] flex-col">
+          <div ref={listRef} className="mt-4 flex max-w-[840px] flex-col gap-1">
             {pipelineSteps.map((step) => (
-              <div key={step.tag + step.name}>
+              <div key={step.tag + step.name} className="pipe-wrapper relative flex items-start gap-4 sm:gap-6">
+                
+                {/* Timeline Axis */}
+                <div className="flex flex-col items-center mt-[22px] sm:mt-[26px]">
+                  <div className={`pipe-status z-10 flex h-3 w-3 items-center justify-center rounded-full border-2 border-snow/20 bg-charcoal transition-all duration-500`}>
+                     <span className="pipe-status-inner h-1 w-1 rounded-full bg-snow/20 transition-all duration-500 scale-0 opacity-0" />
+                  </div>
+                  {step !== pipelineSteps[pipelineSteps.length - 1] && (
+                    <div className="my-1.5 h-[50px] sm:h-[60px] w-[2px] rounded-full bg-snow/5 relative overflow-hidden">
+                       <div className="pipe-flow absolute inset-x-0 top-0 h-full w-full bg-snow/40 origin-top scale-y-0 transition-transform duration-700 ease-out" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Node Content */}
                 <div
                   className={[
-                    'pipe-node flex items-center gap-4 rounded-[14px] border border-snow/10 bg-charcoal px-4.5 py-3.25',
+                    'pipe-node relative flex w-full flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 rounded-[20px] border border-snow/5 bg-charcoal-soft/30 p-4 sm:px-6 sm:py-4 transition-all duration-500',
                     step.gate ? 'is-gate' : '',
                   ].join(' ')}
                 >
-                  <span className="pipe-tag rounded-full border border-snow/25 px-2.25 py-0.75 text-[10px] uppercase tracking-[0.16em] whitespace-nowrap text-snow/60">
-                    {step.tag}
-                  </span>
-                  <span className="text-[clamp(14px,1.4vw,17px)] font-semibold">{step.name}</span>
-                  <span className="ml-auto hidden text-right text-[13px] text-snow/40 xl:block">
+                  <div className="flex items-center gap-4 flex-1">
+                     <span className="pipe-tag rounded-md border border-snow/10 bg-snow/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.15em] whitespace-nowrap text-snow/40 transition-colors duration-500">
+                       {step.tag}
+                     </span>
+                     <span className="pipe-name text-[13px] sm:text-[15px] font-medium leading-tight text-snow/40 transition-colors duration-500">{step.name}</span>
+                  </div>
+                  <span className="pipe-detail hidden text-right font-mono text-[11px] text-snow/30 xl:block transition-colors duration-500">
                     {step.detail}
                   </span>
                 </div>
-                <span
-                  className={`ml-8.5 block h-5.5 w-px ${
-                    step.gate ? 'bg-mint' : 'bg-snow/25'
-                  } ${step === pipelineSteps[pipelineSteps.length - 1] ? 'hidden' : ''}`}
-                />
               </div>
             ))}
           </div>
 
-          <div className="absolute bottom-8.5 left-[clamp(20px,4vw,64px)] flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-snow/40">
+          <div className="mt-2 flex w-max items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-snow/40 bg-charcoal/80 py-1.5 px-3 rounded-lg backdrop-blur-sm z-20 border border-snow/5">
             <span ref={pctRef}>00%</span>
             <span className="relative h-0.5 w-[140px] overflow-hidden rounded-full bg-snow/10">
               <i

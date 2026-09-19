@@ -233,97 +233,138 @@ export function Counterfactual() {
           <p className="max-w-[62ch] text-[clamp(17px,1.5vw,21px)] text-snow/60">{mockContent.lead}</p>
         </div>
 
-        <div className="grid items-center gap-[clamp(28px,5vw,72px)] lg:grid-cols-[1.15fr_1fr]">
+        <div className="grid items-start gap-6 lg:grid-cols-2">
 
           {/* ── Metric table ── */}
-          <Reveal>
-            <div className="overflow-hidden rounded-[22px] border border-snow/10">
-              <div className="flex items-center justify-between border-b border-snow/10 px-5.5 py-4 text-[11px] uppercase tracking-[0.18em] text-snow/40">
+          <Reveal className="h-full">
+            <div className="flex h-full flex-col overflow-hidden rounded-[22px] border border-snow/10 bg-charcoal-soft/20">
+              <div className="flex items-center justify-between border-b border-snow/10 px-6 py-4.5 text-[11px] uppercase tracking-[0.18em] text-snow/40">
                 <span>India Replay · same NIFTY evidence</span>
                 <div className="flex items-center gap-4">
-                  <span className="rounded-full border border-amber/30 px-2 py-0.5 text-[9px] text-amber/80">Controlled Simulation</span>
-                  <span className="flex items-center gap-2 text-mint">
-                    <i className="h-1.75 w-1.75 animate-blink rounded-full bg-mint" />
+                  <span className="rounded-full border border-amber/30 px-2.5 py-1 text-[9px] font-bold text-amber/80">Controlled Simulation</span>
+                  <span className="flex items-center gap-2 font-bold text-mint">
+                    <i className="h-1.5 w-1.5 animate-blink rounded-full bg-mint" />
                     {cfLoading ? 'Loading…' : 'Live'}
                   </span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-[1fr_100px_100px] px-5.5 py-2.5 text-[10px] uppercase tracking-[0.16em] text-snow/40">
+              <div className="grid grid-cols-[1fr_100px_100px] px-6 py-3.5 text-[10px] uppercase tracking-[0.16em] text-snow/40 border-b border-snow/5">
                 <span>Metric</span>
                 <span className="text-right">Disciplined</span>
                 <span className="text-right">Twin</span>
               </div>
 
-              {cfLoading
-                ? Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="px-5.5 py-3.75 border-b border-snow/5">
-                      <div className="skeleton h-4 w-full" />
-                    </div>
-                  ))
-                : rows.map((row) => (
-                    <div
-                      key={row.metric}
-                      className="tabular grid grid-cols-[1fr_100px_100px] border-b border-snow/5 px-5.5 py-3.75 last:border-b-0"
-                    >
-                      <span className="text-[14px] text-snow/60">{row.metric}</span>
-                      <span className="text-right font-display text-lg">{row.disciplined}</span>
-                      <span className={`text-right font-display text-lg ${row.highlightTwin ? 'text-mint' : 'text-snow/40'}`}>
-                        {row.twin}
-                      </span>
-                    </div>
-                  ))
-              }
+              <div className="flex-1 flex flex-col justify-center">
+                {cfLoading
+                  ? Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="px-6 py-4 border-b border-snow/5">
+                        <div className="skeleton h-4 w-full" />
+                      </div>
+                    ))
+                  : rows.map((row) => (
+                      <div
+                        key={row.metric}
+                        className="tabular grid grid-cols-[1fr_100px_100px] border-b border-snow/5 px-6 py-4 last:border-b-0 transition-colors hover:bg-snow/5"
+                      >
+                        <span className="text-[14px] text-snow/60">{row.metric}</span>
+                        <span className="text-right font-display text-lg">{row.disciplined}</span>
+                        <span className={`text-right font-display text-lg ${row.highlightTwin ? 'text-mint' : 'text-snow/40'}`}>
+                          {row.twin}
+                        </span>
+                      </div>
+                    ))
+                }
+              </div>
 
-              <div className="flex items-center justify-between bg-mint/12 px-5.5 py-4.5">
-                <span className="text-[12px] uppercase tracking-[0.14em] text-snow/60">Capital difference</span>
-                <span className="font-display text-[clamp(24px,2.6vw,34px)] text-mint">
+              <div className="flex items-center justify-between border-t border-snow/10 bg-mint/5 px-6 py-5">
+                <span className="text-[12px] font-bold uppercase tracking-[0.16em] text-mint/80">Capital difference</span>
+                <span className="font-display text-[clamp(28px,3vw,40px)] leading-none text-mint">
                   ₹{cf.capital_difference_inr.toLocaleString('en-IN')}
                 </span>
               </div>
             </div>
-
-            {/* ── Live feed: clickable decision rows ── */}
-            {decisions.length > 0 && (
-              <div className="mt-4 overflow-hidden rounded-[16px] border border-snow/8">
-                <div className="border-b border-snow/8 px-4 py-2.5 text-[10px] uppercase tracking-[0.16em] text-snow/35">
-                  Decision Feed — click a row for full audit
-                </div>
-                {decisions.map((dec: FeedDecision) => (
-                  <button
-                    key={dec.decision_id}
-                    id={`decision-row-${dec.decision_id}`}
-                    className="decision-row-btn"
-                    onClick={() => handleRowClick(dec)}
-                    aria-label={`View decision detail for ${dec.symbol} ${dec.action}`}
-                  >
-                    <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-4 py-3">
-                      <div>
-                        <span className={`text-[13px] font-semibold uppercase ${dec.action === 'buy' ? 'text-mint' : dec.action === 'sell' ? 'text-danger' : 'text-amber'}`}>
-                          {dec.action}
-                        </span>
-                        <span className="ml-2 text-[13px] text-snow/60">{dec.symbol}</span>
-                        <span className="ml-1.5 text-[11px] text-snow/30">{dec.agent_role}</span>
-                      </div>
-                      <span className={`rounded text-[10px] uppercase tracking-[0.12em] px-2 py-0.5 ${
-                        dec.guardrail_result === 'passed'
-                          ? 'bg-mint/10 text-mint'
-                          : 'bg-danger/10 text-danger'
-                      }`}>
-                        {dec.guardrail_result === 'passed' ? '✓ Passed' : '✗ Blocked'}
-                      </span>
-                      <span className="text-[10px] text-snow/25">›</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
           </Reveal>
 
           {/* ── Twin SVG chart ── */}
-          <Reveal delay={0.15}>
-            <TwinChart />
+          <Reveal delay={0.15} className="h-full">
+            <div className="h-full flex flex-col">
+              <TwinChart />
+            </div>
           </Reveal>
+
+          {/* ── Live feed: clickable decision rows ── */}
+          {decisions.length > 0 && (
+            <Reveal delay={0.3} className="lg:col-span-2">
+              <div className="mt-2 overflow-hidden rounded-[22px] border border-snow/10 bg-charcoal-soft/20">
+                <div className="border-b border-snow/10 px-6 py-4 flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-snow/40">
+                  <span>Decision Feed — Audit Log</span>
+                  <span className="text-[9px] text-snow/30">Click row to inspect agent reasoning</span>
+                </div>
+                
+                {/* Desktop Table Header */}
+                <div className="hidden md:grid grid-cols-[80px_120px_1fr_1.5fr_120px_40px] items-center gap-4 px-6 py-3 border-b border-snow/5 text-[10px] uppercase tracking-[0.16em] text-snow/30">
+                  <span>Action</span>
+                  <span>Agent</span>
+                  <span>Symbol</span>
+                  <span>Market Context</span>
+                  <span className="text-right">Result</span>
+                  <span />
+                </div>
+
+                <div className="flex flex-col">
+                  {decisions.map((dec: FeedDecision) => (
+                    <button
+                      key={dec.decision_id}
+                      id={`decision-row-${dec.decision_id}`}
+                      className="decision-row-btn w-full text-left"
+                      onClick={() => handleRowClick(dec)}
+                      aria-label={`View decision detail for ${dec.symbol} ${dec.action}`}
+                    >
+                      {/* Responsive Grid Row */}
+                      <div className="grid grid-cols-[auto_1fr_auto] md:grid-cols-[80px_120px_1fr_1.5fr_120px_40px] items-center gap-4 px-6 py-3.5 transition-colors hover:bg-snow/5">
+                        
+                        {/* Action */}
+                        <span className={`text-[13px] font-bold uppercase tracking-wider ${dec.action === 'buy' ? 'text-mint' : dec.action === 'sell' ? 'text-danger' : 'text-amber'}`}>
+                          {dec.action}
+                        </span>
+
+                        {/* Agent (Mobile hidden, Desktop shown) */}
+                        <span className="hidden md:block text-[13px] text-snow/50 capitalize">
+                          {dec.agent_role}
+                        </span>
+
+                        {/* Symbol & Agent (Mobile stacked) / Symbol (Desktop) */}
+                        <div className="flex flex-col md:block">
+                          <span className="text-[14px] font-medium text-snow/80">{dec.symbol}</span>
+                          <span className="text-[11px] text-snow/40 md:hidden capitalize">{dec.agent_role}</span>
+                        </div>
+
+                        {/* Context (Hidden on small mobile, visible on desktop/tablet) */}
+                        <span className="hidden md:block text-[13px] text-snow/50 truncate">
+                          {dec.market_context}
+                        </span>
+
+                        {/* Result */}
+                        <div className="flex justify-end md:justify-end">
+                          <span className={`rounded-md text-[10px] font-bold uppercase tracking-[0.15em] px-2.5 py-1 ${
+                            dec.guardrail_result === 'passed'
+                              ? 'bg-mint/10 border border-mint/20 text-mint'
+                              : 'bg-danger/10 border border-danger/20 text-danger'
+                          }`}>
+                            {dec.guardrail_result === 'passed' ? '✓ Passed' : '✗ Blocked'}
+                          </span>
+                        </div>
+
+                        {/* Chevron */}
+                        <span className="text-[14px] text-snow/20 md:text-right">›</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </Reveal>
+          )}
         </div>
       </section>
 

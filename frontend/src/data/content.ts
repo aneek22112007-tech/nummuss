@@ -89,20 +89,25 @@ export const orbImages: Record<OrbKey, string> = {
 /* ------------------------------------------------------------------ */
 export const navSections: NavSection[] = [
   {
+    label: 'Flagship Mode',
+    items: [
+      { num: '01', title: 'Shadow Challenge (Live)', href: '#shadow', orb: 'evidence' },
+    ],
+  },
+  {
     label: 'Product',
     items: [
-      { num: '01', title: 'The Experiment', href: '#experiment', orb: 'reason' },
-      { num: '02', title: 'Safety Gates', href: '#gates', orb: 'aws' },
-      { num: '03', title: 'India Replay', href: '#replay', orb: 'behavior' },
-      { num: '04', title: 'Counterfactual', href: '#counterfactual', orb: 'evidence' },
+      { num: '02', title: 'The Experiment', href: '#experiment', orb: 'reason' },
+      { num: '03', title: 'Safety Gates', href: '#gates', orb: 'aws' },
+      { num: '04', title: 'India Replay', href: '#replay', orb: 'behavior' },
+      { num: '05', title: 'Counterfactual', href: '#counterfactual', orb: 'evidence' },
     ],
   },
   {
     label: 'Company',
     items: [
-      { num: '05', title: 'Home', href: '#top', orb: 'reason' },
-      { num: '06', title: 'Vision', href: '#vision', orb: 'audit' },
-      { num: '07', title: 'Shadow Challenge', href: '#shadow', orb: 'evidence' },
+      { num: '06', title: 'Home', href: '#top', orb: 'reason' },
+      { num: '07', title: 'Vision', href: '#vision', orb: 'audit' },
     ],
   },
 ]

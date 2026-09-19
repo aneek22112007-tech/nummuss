@@ -47,7 +47,7 @@ function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [isSignUpOpen, setSignUpOpen] = useState(false)
   const [showWelcomeToast, setShowWelcomeToast] = useState(false)
-  const { user } = useAuth()
+  const { user, isAuthenticated, isLoading } = useAuth()
 
   // Lenis inertia scrolling for landing page only
   useSmoothScroll()
@@ -57,6 +57,11 @@ function LandingPage() {
     if (user) {
       setShowWelcomeToast(true)
     }
+  }
+
+  // Redirect to dashboard if already logged in
+  if (!isLoading && isAuthenticated) {
+    return <Navigate to="/dashboard" replace />
   }
 
   return (
@@ -71,6 +76,7 @@ function LandingPage() {
       <main>
         <Hero onTryClick={() => setSignUpOpen(true)} />
         <Marquee />
+        <Shadow />
         <Vision />
         <Stats />
         <Problems />
@@ -80,7 +86,6 @@ function LandingPage() {
         <Counterfactual />
         <FailureModes />
         <Replay />
-        <Shadow />
         <FinalCTA />
       </main>
 
