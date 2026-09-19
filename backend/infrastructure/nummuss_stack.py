@@ -3,7 +3,6 @@ from aws_cdk import (
     Stack,
     RemovalPolicy,
     CfnOutput,
-    aws_bedrock as bedrock,
     aws_cloudfront as cloudfront,
     aws_cloudfront_origins as origins,
     aws_dynamodb as dynamodb,
@@ -17,6 +16,7 @@ from aws_cdk import (
     aws_sqs as sqs,
 )
 from constructs import Construct
+import os
 
 class BackendStack(Stack):
 
@@ -121,7 +121,8 @@ class BackendStack(Stack):
                 "DDB_DECISIONS_TABLE": decisions_table.table_name,
                 "DDB_SIGNALS_TABLE": signals_table.table_name,
                 "S3_EVIDENCE_BUCKET": evidence_bucket.bucket_name,
-                "BEDROCK_MODEL_ID": "anthropic.claude-3-haiku-20240307-v1:0",
+                "GROK_API_KEY": os.environ.get("GROK_API_KEY", ""),
+                "GEMINI_API_KEY": os.environ.get("GEMINI_API_KEY", ""),
                 "PYTHONPATH": "/var/runtime:/opt"
             },
             layers=[common_layer],
@@ -135,36 +136,6 @@ class BackendStack(Stack):
         decisions_table.grant_write_data(reason_decide_lambda)
         signals_table.grant_read_data(reason_decide_lambda)
         evidence_bucket.grant_read(reason_decide_lambda)
-
-        content_guardrail = bedrock.CfnGuardrail(
-            self, "NummussContentGuardrail",
-            name=f"nummuss-{stage}-content-guardrail",
-            description="Blocks unsafe content and prompt attacks in Nummuss model requests.",
-            blocked_input_messaging="This request was blocked by the Nummuss safety policy.",
-            blocked_outputs_messaging="The model response was blocked by the Nummuss safety policy.",
-            content_policy_config=bedrock.CfnGuardrail.ContentPolicyConfigProperty(
-                filters_config=[
-                    bedrock.CfnGuardrail.ContentFilterConfigProperty(
-                        type=content_type,
-                        input_strength="HIGH",
-                        output_strength="HIGH"
-                    )
-                    for content_type in ["HATE", "INSULTS", "SEXUAL", "VIOLENCE", "MISCONDUCT", "PROMPT_ATTACK"]
-                ]
-            )
-        )
-        reason_decide_lambda.add_environment("BEDROCK_GUARDRAIL_ID", content_guardrail.attr_guardrail_id)
-        reason_decide_lambda.add_environment("BEDROCK_GUARDRAIL_VERSION", content_guardrail.attr_version)
-        reason_decide_lambda.add_to_role_policy(iam.PolicyStatement(
-            actions=["bedrock:InvokeModel"],
-            resources=[
-                f"arn:{self.partition}:bedrock:{self.region}::foundation-model/anthropic.claude-3-haiku-20240307-v1:0"
-            ]
-        ))
-        reason_decide_lambda.add_to_role_policy(iam.PolicyStatement(
-            actions=["bedrock:ApplyGuardrail"],
-            resources=[content_guardrail.attr_guardrail_arn]
-        ))
 
         # Ingestion invokes reasoning only after it has persisted the latest signals.
         fetch_signal_lambda.add_environment("REASON_DECIDE_FUNCTION_NAME", reason_decide_lambda.function_name)

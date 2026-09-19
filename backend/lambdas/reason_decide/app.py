@@ -8,6 +8,11 @@ try:
 except ImportError:
     boto3 = None
 
+try:
+    import urllib.request as urllib_request
+except ImportError:
+    urllib_request = None
+
 # Import shared engine helpers
 try:
     from common.schemas import DecisionRecord, TradeResult, SignalSource, MarketSignal
@@ -22,8 +27,115 @@ except ImportError:
 
 DDB_DECISIONS_TABLE = os.environ.get("DDB_DECISIONS_TABLE", "nummuss-decisions")
 DDB_SIGNALS_TABLE = os.environ.get("DDB_SIGNALS_TABLE", "nummuss-signals")
-BEDROCK_MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "anthropic.claude-3-haiku-20240307-v1:0")
-BEDROCK_GUARDRAIL_ID = os.environ.get("BEDROCK_GUARDRAIL_ID", None)
+GROK_API_KEY = os.environ.get("GROK_API_KEY", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+
+# --- LLM fallback chain: Grok (P1) → Gemini (P2) → deterministic hold ---
+_LLM_FALLBACK = {
+    "action": "hold",
+    "symbol": "NIFTY50",
+    "confidence_raw": 0,
+    "confidence_tier": "low",
+    "cited_symbols": [],
+    "cited_signals": []
+}
+
+
+def _http_post(url: str, headers: dict, payload: dict) -> dict:
+    """Minimal HTTP POST using stdlib urllib (no extra deps needed in Lambda)."""
+    body = json.dumps(payload).encode("utf-8")
+    req = urllib_request.Request(url, data=body, headers=headers, method="POST")
+    with urllib_request.urlopen(req, timeout=20) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _parse_json_from_text(text: str) -> dict | None:
+    """Extract the first {...} JSON block from a freeform text response."""
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1:
+        try:
+            return json.loads(text[start:end + 1])
+        except json.JSONDecodeError:
+            pass
+    return None
+
+
+def _call_grok(prompt_text: str) -> dict | None:
+    """
+    Priority 1: xAI Grok API (OpenAI-compatible endpoint).
+    Returns parsed dict or None on failure.
+    """
+    if not GROK_API_KEY:
+        return None
+    try:
+        payload = {
+            "model": "grok-3-mini",
+            "messages": [{"role": "user", "content": prompt_text}],
+            "max_tokens": 512,
+            "temperature": 0.2,
+        }
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {GROK_API_KEY}",
+        }
+        resp = _http_post("https://api.x.ai/v1/chat/completions", headers, payload)
+        text = resp["choices"][0]["message"]["content"]
+        result = _parse_json_from_text(text)
+        if result:
+            print("LLM provider: Grok (P1)")
+        return result
+    except Exception as err:
+        print(f"Grok API error (falling back to Gemini): {err}")
+        return None
+
+
+def _call_gemini(prompt_text: str) -> dict | None:
+    """
+    Priority 2: Google Gemini API.
+    Returns parsed dict or None on failure.
+    """
+    if not GEMINI_API_KEY:
+        return None
+    try:
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+        )
+        payload = {
+            "contents": [{"parts": [{"text": prompt_text}]}],
+            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 512},
+        }
+        headers = {"Content-Type": "application/json"}
+        resp = _http_post(url, headers, payload)
+        text = resp["candidates"][0]["content"]["parts"][0]["text"]
+        result = _parse_json_from_text(text)
+        if result:
+            print("LLM provider: Gemini (P2)")
+        return result
+    except Exception as err:
+        print(f"Gemini API error (using deterministic fallback): {err}")
+        return None
+
+
+def call_llm(prompt_text: str) -> dict:
+    """
+    Unified LLM caller:
+      1. Try Grok (xAI) — Priority 1
+      2. Try Gemini (Google) — Priority 2
+      3. Deterministic hold — fail-safe fallback
+    Returns a decision dict identical in shape to the old Bedrock response.
+    """
+    result = _call_grok(prompt_text)
+    if result:
+        return result
+
+    result = _call_gemini(prompt_text)
+    if result:
+        return result
+
+    print("Both LLM providers unavailable. Using deterministic hold fallback.")
+    return _LLM_FALLBACK
 
 def query_recent_signals() -> list:
     """Fetch recent signals from DynamoDB or return seed signals fallback."""
@@ -40,70 +152,16 @@ def query_recent_signals() -> list:
     
     return [MarketSignal(**sig) for sig in SEED_SIGNALS]
 
-def call_bedrock_claude(prompt_text: str) -> dict:
-    """
-    Invoke Amazon Bedrock (Claude 3 Haiku) with forced JSON output.
-    Uses boto3 bedrock-runtime. Fallbacks to deterministic JSON if Bedrock is unavailable.
-    """
-    if boto3:
-        try:
-            bedrock = boto3.client("bedrock-runtime")
-            payload = {
-                "anthropic_version": "bedrock-2023-05-31",
-                "max_tokens": 512,
-                "temperature": 0.2,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": prompt_text
-                    }
-                ]
-            }
-            
-            kwargs = {
-                "modelId": BEDROCK_MODEL_ID,
-                "contentType": "application/json",
-                "accept": "application/json",
-                "body": json.dumps(payload)
-            }
-            if BEDROCK_GUARDRAIL_ID:
-                kwargs["guardrailIdentifier"] = BEDROCK_GUARDRAIL_ID
-                kwargs["guardrailVersion"] = os.environ.get("BEDROCK_GUARDRAIL_VERSION", "1")
 
-            response = bedrock.invoke_model(**kwargs)
-            resp_body = json.loads(response.get("body").read().decode("utf-8"))
-            if resp_body.get("amazon-bedrock-guardrailAction") == "INTERVENED":
-                return {"guardrail_intervened": True}
-            text_output = resp_body["content"][0]["text"]
-            
-            # Parse JSON from model output
-            start_idx = text_output.find("{")
-            end_idx = text_output.rfind("}")
-            if start_idx != -1 and end_idx != -1:
-                return json.loads(text_output[start_idx:end_idx+1])
-        except Exception as err:
-            print(f"Bedrock invocation fallback/warning: {err}")
-
-    # A provider failure must fail closed: downstream logic will only create a
-    # HOLD decision unless the model response passed validation.
-    return {
-        "action": "hold",
-        "symbol": "NIFTY50",
-        "confidence_raw": 0,
-        "confidence_tier": "low",
-        "cited_symbols": [],
-        "cited_signals": []
-    }
 
 def handler(event, context):
     """
     reason_decide Lambda Handler:
     1. Fetches recent signals
-    2. Calls Amazon Bedrock for reasoning
-    3. Layer 0: Bedrock Guardrails
-    4. Layer 1: Evidence Consistency Gate
-    5. Layer 2: Behavioral Guardrails (active for disciplined, bypassed for undisciplined twin)
-    6. Stores DecisionRecords in DynamoDB
+    2. Calls LLM: Grok (P1) → Gemini (P2) → deterministic fallback
+    3. Layer 1: Evidence Consistency Gate
+    4. Layer 2: Behavioral Guardrails (active for disciplined, bypassed for undisciplined twin)
+    5. Stores DecisionRecords in DynamoDB
     """
     print("Executing reason_decide handler...")
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -121,7 +179,6 @@ Output only a valid JSON object with keys:
     # Detect malicious payload for Layer 0 Security Verification Test
     is_malicious_fixture = any("IGNORE PREVIOUS INSTRUCTIONS" in sig.content for sig in signals)
 
-    bedrock_guardrail_intervened = False
     if is_malicious_fixture:
         action = "hold"
         symbol = "NIFTY50"
@@ -132,9 +189,9 @@ Output only a valid JSON object with keys:
         is_valid_l1 = False
         evidence_quality = "weak"
     else:
-        llm_decision = call_bedrock_claude(prompt)
-        bedrock_guardrail_intervened = llm_decision.get("guardrail_intervened", False)
-        if bedrock_guardrail_intervened:
+        llm_decision = call_llm(prompt)
+        llm_guardrail_intervened = llm_decision.get("guardrail_intervened", False)
+        if llm_guardrail_intervened:
             action = "hold"
             symbol = "NIFTY50"
             confidence_raw = 0
@@ -172,7 +229,8 @@ Output only a valid JSON object with keys:
         is_allowed = True
         test_fixture_flag = False
 
-        if is_malicious_fixture or bedrock_guardrail_intervened:
+        llm_intervened = (not is_malicious_fixture) and llm_decision.get("guardrail_intervened", False) if "llm_decision" in dir() else False
+        if is_malicious_fixture or llm_intervened:
             guardrail_layer = "content"
             guardrail_result = "blocked_prompt_attack"
             reason_label = None
