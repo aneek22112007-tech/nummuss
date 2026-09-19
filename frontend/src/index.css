@@ -8,8 +8,8 @@
   --color-charcoal: #0b0d0c;
   --color-charcoal-soft: #111412;
   --color-ink: #080908;
-  --color-mint: #02fa6a;
-  --color-danger: #ff4d3d;
+  --color-mint: #22c55e;
+  --color-danger: #ef4444;
   --color-amber: #ffb84d;
 
   --font-display: 'Anton', system-ui, sans-serif;
@@ -30,8 +30,8 @@
   100% { transform: translateY(400%); opacity: 0; }
 }
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 15px rgba(2, 250, 106, 0.2); }
-  50% { box-shadow: 0 0 35px rgba(2, 250, 106, 0.45); }
+  0%, 100% { box-shadow: 0 0 15px rgba(34, 197, 94, 0.2); }
+  50% { box-shadow: 0 0 35px rgba(34, 197, 94, 0.45); }
 }
 
 @keyframes marquee {
@@ -288,13 +288,13 @@
 
 /* Gates (Clean Flat Design) */
 .pipe-wrapper.is-active .pipe-node.is-gate {
-  border-color: rgb(2 250 106 / 0.3);
-  background-color: rgb(2 250 106 / 0.04);
+  border-color: rgb(34 197 94 / 0.3);
+  background-color: rgb(34 197 94 / 0.04);
 }
 .pipe-wrapper.is-active .pipe-node.is-gate .pipe-tag {
   color: var(--color-mint);
-  border-color: rgb(2 250 106 / 0.4);
-  background-color: rgb(2 250 106 / 0.1);
+  border-color: rgb(34 197 94 / 0.4);
+  background-color: rgb(34 197 94 / 0.1);
 }
 
 /* Timeline Axis Animations */
@@ -405,8 +405,8 @@
 }
 .sec-blocked {
   color: var(--color-danger);
-  background: rgba(255, 77, 61, 0.1);
-  border: 1px solid rgba(255, 77, 61, 0.3);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 8px;
   padding: 10px 16px;
   font-size: 13px;

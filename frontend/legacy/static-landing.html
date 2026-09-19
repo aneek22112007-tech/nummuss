@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Nummuss — The Behavioral Safety Layer for AI Trading Agents</title>
 <meta name="description" content="Nummuss: same signals, same model, same code path — one agent disciplined, one exposed to documented failure patterns — and the system measures the counterfactual difference." />
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%2302fa6a'/></svg>" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%2322c55e'/></svg>" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -25,9 +25,9 @@
   --charcoal-50:rgba(11,13,12,.5);
   --charcoal-20:rgba(11,13,12,.2);
   --charcoal-0:rgba(11,13,12,0);
-  --mint:#02fa6a;
-  --mint-dim:rgba(2,250,106,.12);
-  --danger:#ff4d3d;
+  --mint:#22c55e;
+  --mint-dim:rgba(34,197,94,.12);
+  --danger:#ef4444;
   --amber:#ffb84d;
   --font-display:"Anton",sans-serif;
   --font-body:"Space Grotesk",sans-serif;
@@ -433,10 +433,10 @@ button,input{font:inherit;color:inherit}
 .mode-card:nth-child(6):hover{border-color:var(--mint)}
 .mode-card .fm{
   font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--danger);
-  border:1px solid rgba(255,77,61,.35);border-radius:999px;padding:4px 10px;align-self:flex-start;
+  border:1px solid rgba(239,68,68,.35);border-radius:999px;padding:4px 10px;align-self:flex-start;
 }
 .mode-card:nth-child(2) .fm,.mode-card:nth-child(5) .fm{color:var(--amber);border-color:rgba(255,184,77,.35)}
-.mode-card:nth-child(3) .fm,.mode-card:nth-child(6) .fm{color:var(--mint);border-color:rgba(2,250,106,.35)}
+.mode-card:nth-child(3) .fm,.mode-card:nth-child(6) .fm{color:var(--mint);border-color:rgba(34,197,94,.35)}
 .mode-card h3{font-family:var(--font-display);font-size:clamp(21px,2vw,28px);text-transform:uppercase;line-height:1}
 .mode-card p{color:var(--snow-60);font-size:14.5px}
 .mode-card .metric{margin-top:auto;font-size:12px;color:var(--snow-40);border-top:1px solid var(--snow-5);padding-top:12px}
@@ -467,7 +467,7 @@ button,input{font:inherit;color:inherit}
   background:rgba(11,13,12,.55);border:1px solid var(--snow-10);border-radius:999px;padding:6px 12px;color:var(--snow-60);
   backdrop-filter:blur(6px);
 }
-.replay-card__tag.mint{color:var(--mint);border-color:rgba(2,250,106,.4)}
+.replay-card__tag.mint{color:var(--mint);border-color:rgba(34,197,94,.4)}
 .replay-card__body{padding:22px 24px 26px;display:flex;flex-direction:column;gap:8px;background:#0e100f}
 .replay-card__body h3{font-family:var(--font-display);font-size:clamp(20px,1.9vw,26px);text-transform:uppercase}
 .replay-card__body p{color:var(--snow-60);font-size:14px}
@@ -504,8 +504,8 @@ button,input{font:inherit;color:inherit}
 .terminal .verdict{
   display:inline-block;padding:3px 10px;border-radius:6px;font-weight:700;letter-spacing:.08em;
 }
-.terminal .verdict.block{background:rgba(255,77,61,.15);color:var(--danger);border:1px solid rgba(255,77,61,.4)}
-.terminal .verdict.allow{background:var(--mint-dim);color:var(--mint);border:1px solid rgba(2,250,106,.4)}
+.terminal .verdict.block{background:rgba(239,68,68,.15);color:var(--danger);border:1px solid rgba(239,68,68,.4)}
+.terminal .verdict.allow{background:var(--mint-dim);color:var(--mint);border:1px solid rgba(34,197,94,.4)}
 .terminal .reason{color:var(--amber)}
 .terminal .caret{display:inline-block;width:8px;height:16px;background:var(--mint);vertical-align:-2px;animation:blink 1s steps(1) infinite}
 
@@ -806,11 +806,11 @@ button,input{font:inherit;color:inherit}
         <svg viewBox="0 0 500 300" role="img" aria-label="Twin portfolio curves diverging">
           <path class="path-twin" d="M10,250 C60,240 90,255 120,235 S180,250 210,215 S280,235 320,195 S400,215 490,185" />
           <path class="path-disciplined" d="M10,250 C70,245 110,230 150,225 S230,205 280,180 S380,140 490,95" />
-          <circle cx="490" cy="95" r="5" fill="#02fa6a"/>
-          <circle cx="490" cy="185" r="5" fill="#ff4d3d"/>
+          <circle cx="490" cy="95" r="5" fill="#22c55e"/>
+          <circle cx="490" cy="185" r="5" fill="#ef4444"/>
           <text class="chart-label" x="10" y="292" fill="rgba(245,244,239,.4)">Replay clock →</text>
-          <text class="chart-label" x="380" y="80" fill="#02fa6a">+14.2%</text>
-          <text class="chart-label" x="430" y="175" fill="#ff4d3d">-1.4%</text>
+          <text class="chart-label" x="380" y="80" fill="#22c55e">+14.2%</text>
+          <text class="chart-label" x="430" y="175" fill="#ef4444">-1.4%</text>
         </svg>
       </div>
     </div>

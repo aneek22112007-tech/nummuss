@@ -158,7 +158,7 @@ function TwinChart() {
       </div>
       <svg viewBox="0 0 500 300" role="img" aria-label="Twin portfolio curves diverging">
         <motion.path
-          className="chart-path" stroke="#ff4d3d"
+          className="chart-path" stroke="#ef4444"
           d="M10,250 C60,240 90,255 120,235 S180,250 210,215 S280,235 320,195 S400,215 490,185"
           initial={{ pathLength: 0, opacity: 0 }}
           whileInView={{ pathLength: 1, opacity: 1 }}
@@ -166,19 +166,19 @@ function TwinChart() {
           transition={{ duration: 2.2, delay: 0.5, ease: [0.4, 0, 0.2, 1], opacity: { duration: 0.4 } }}
         />
         <motion.path
-          className="chart-path" stroke="#02fa6a"
+          className="chart-path" stroke="#22c55e"
           d="M10,250 C70,245 110,230 150,225 S230,205 280,180 S380,140 490,95"
           initial={{ pathLength: 0, opacity: 0 }}
           whileInView={{ pathLength: 1, opacity: 1 }}
           viewport={{ once: true, amount: 0.5 }}
           transition={{ duration: 2.2, delay: 0.2, ease: [0.4, 0, 0.2, 1], opacity: { duration: 0.4 } }}
         />
-        <motion.circle cx="490" cy="95" r="5" fill="#02fa6a"
+        <motion.circle cx="490" cy="95" r="5" fill="#22c55e"
           initial={{ scale: 0 }} whileInView={{ scale: 1 }}
           viewport={{ once: true, amount: 0.5 }} transition={{ delay: 2.2, duration: 0.4 }}
           style={{ transformOrigin: '490px 95px' }}
         />
-        <motion.circle cx="490" cy="185" r="5" fill="#ff4d3d"
+        <motion.circle cx="490" cy="185" r="5" fill="#ef4444"
           initial={{ scale: 0 }} whileInView={{ scale: 1 }}
           viewport={{ once: true, amount: 0.5 }} transition={{ delay: 2.4, duration: 0.4 }}
           style={{ transformOrigin: '490px 185px' }}
@@ -186,8 +186,8 @@ function TwinChart() {
         <text x="10" y="292" fill="rgba(245,244,239,.4)" fontSize="11" letterSpacing="1">
           {mockContent.chartCaption.clock}
         </text>
-        <text x="378" y="80" fill="#02fa6a" fontSize="11">+14.2%</text>
-        <text x="430" y="175" fill="#ff4d3d" fontSize="11">-1.4%</text>
+        <text x="378" y="80" fill="#22c55e" fontSize="11">+14.2%</text>
+        <text x="430" y="175" fill="#ef4444" fontSize="11">-1.4%</text>
       </svg>
     </div>
   )

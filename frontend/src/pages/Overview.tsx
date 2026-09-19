@@ -185,7 +185,7 @@ function TwinChart({ data, chartRef }: { data: any; chartRef: React.RefObject<SV
         <path
           d={pathTwin}
           className="chart-path"
-          stroke="#ff4d3d"
+          stroke="#ef4444"
           strokeWidth="2"
           fill="none"
           strokeDasharray="1000"
@@ -194,7 +194,7 @@ function TwinChart({ data, chartRef }: { data: any; chartRef: React.RefObject<SV
         <path
           d={pathDisciplined}
           className="chart-path"
-          stroke="#02fa6a"
+          stroke="#22c55e"
           strokeWidth="2"
           fill="none"
           strokeDasharray="1000"
@@ -203,10 +203,10 @@ function TwinChart({ data, chartRef }: { data: any; chartRef: React.RefObject<SV
 
         {/* Legend */}
         <g transform={`translate(${w - 120}, 20)`}>
-          <line x1="0" y1="5" x2="20" y2="5" stroke="#02fa6a" strokeWidth="2" />
-          <text x="25" y="9" fill="#02fa6a" fontSize="11" fontFamily="monospace">Disciplined</text>
-          <line x1="0" y1="20" x2="20" y2="20" stroke="#ff4d3d" strokeWidth="2" />
-          <text x="25" y="24" fill="#ff4d3d" fontSize="11" fontFamily="monospace">Twin</text>
+          <line x1="0" y1="5" x2="20" y2="5" stroke="#22c55e" strokeWidth="2" />
+          <text x="25" y="9" fill="#22c55e" fontSize="11" fontFamily="monospace">Disciplined</text>
+          <line x1="0" y1="20" x2="20" y2="20" stroke="#ef4444" strokeWidth="2" />
+          <text x="25" y="24" fill="#ef4444" fontSize="11" fontFamily="monospace">Twin</text>
         </g>
       </svg>
 
