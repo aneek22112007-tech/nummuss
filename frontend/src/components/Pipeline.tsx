@@ -73,7 +73,7 @@ export function Pipeline() {
     <section id="experiment" className="rule-top bg-charcoal relative z-10">
       {/* tall wrapper gives the sticky child its scroll distance to scrub through */}
       <div ref={wrapRef} className="relative h-[150svh]">
-        <div className="sticky top-0 flex h-[100svh] flex-col justify-start gap-[clamp(12px,1.5vh,24px)] overflow-hidden px-[clamp(20px,4vw,64px)] pt-[clamp(32px,5vh,80px)] pb-[clamp(50px,8vh,100px)]">
+        <div className="sticky top-0 flex h-[100svh] flex-col justify-center gap-[clamp(8px,1vh,16px)] px-[clamp(20px,4vw,64px)] py-[clamp(24px,3vh,40px)]">
           <BracketLabel>{pipelineCopy.label}</BracketLabel>
 
           <SplitHeading
@@ -91,17 +91,17 @@ export function Pipeline() {
             {pipelineCopy.lead}
           </p>
 
-          <div ref={listRef} className="mt-4 flex max-w-[840px] flex-col gap-1">
+          <div ref={listRef} className="mt-2 flex max-w-[840px] flex-col gap-0.5">
             {pipelineSteps.map((step) => (
-              <div key={step.tag + step.name} className="pipe-wrapper relative flex items-start gap-4 sm:gap-6">
+              <div key={step.tag + step.name} className="pipe-wrapper relative flex items-start gap-3 sm:gap-4">
                 
                 {/* Timeline Axis */}
-                <div className="flex flex-col items-center mt-[22px] sm:mt-[26px]">
-                  <div className={`pipe-status z-10 flex h-3 w-3 items-center justify-center rounded-full border-2 border-snow/20 bg-charcoal transition-all duration-500`}>
+                <div className="flex flex-col items-center mt-[16px] sm:mt-[20px]">
+                  <div className={`pipe-status z-10 flex h-2.5 w-2.5 items-center justify-center rounded-full border-2 border-snow/20 bg-charcoal transition-all duration-500`}>
                      <span className="pipe-status-inner h-1 w-1 rounded-full bg-snow/20 transition-all duration-500 scale-0 opacity-0" />
                   </div>
                   {step !== pipelineSteps[pipelineSteps.length - 1] && (
-                    <div className="my-1.5 h-[50px] sm:h-[60px] w-[2px] rounded-full bg-snow/5 relative overflow-hidden">
+                    <div className="my-1 h-[25px] sm:h-[30px] w-[2px] rounded-full bg-snow/5 relative overflow-hidden">
                        <div className="pipe-flow absolute inset-x-0 top-0 h-full w-full bg-snow/40 origin-top scale-y-0 transition-transform duration-700 ease-out" />
                     </div>
                   )}
@@ -110,7 +110,7 @@ export function Pipeline() {
                 {/* Node Content */}
                 <div
                   className={[
-                    'pipe-node relative flex w-full flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 rounded-[20px] border border-snow/5 bg-charcoal-soft/30 p-4 sm:px-6 sm:py-4 transition-all duration-500',
+                    'pipe-node relative flex w-full flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 rounded-[16px] border border-snow/5 bg-charcoal-soft/30 p-2.5 sm:px-4 sm:py-2.5 transition-all duration-500',
                     step.gate ? 'is-gate' : '',
                   ].join(' ')}
                 >

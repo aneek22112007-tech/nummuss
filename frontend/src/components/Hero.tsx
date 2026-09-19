@@ -2,7 +2,7 @@ import { useCallback, useRef } from 'react'
 import { motion } from 'motion/react'
 import { ScrollVideo, type VideoSources } from './ScrollVideo'
 import { HeroCanvas } from './HeroCanvas'
-import { FlipButton } from './ui/FlipButton'
+
 import { hero } from '../data/content'
 
 /**
@@ -127,19 +127,7 @@ export function Hero({ onTryClick: _onTryClick }: { onTryClick?: () => void }) {
               {hero.subtitle}
             </motion.p>
 
-            <motion.div
-              className="flex flex-wrap justify-center gap-3.5"
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.0, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <FlipButton href="#shadow" variant="mint" size="lg">
-                Challenge Nummuss
-              </FlipButton>
-              <FlipButton href="/dashboard" size="lg">
-                Enter Dashboard
-              </FlipButton>
-            </motion.div>
+
           </motion.div>
 
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 animate-hint flex flex-col items-center gap-1.5">

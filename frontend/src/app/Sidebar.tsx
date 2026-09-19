@@ -24,7 +24,7 @@ export function Sidebar() {
   const { user, logout } = useAuth()
   
   return (
-    <aside className="w-[280px] m-4 rounded-[32px] glass-panel flex flex-col overflow-hidden relative">
+    <aside className="w-[280px] m-4 rounded-[32px] bg-[#111412] flex flex-col overflow-hidden relative">
       {/* Logo / Brand */}
       <div className="p-6 border-b border-snow/10">
         <div className="mb-1">

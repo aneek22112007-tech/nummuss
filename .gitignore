@@ -9,3 +9,4 @@ frontend/.env
 *.mov
 *.mp4
 .gemini/
+backend/.env

@@ -8,8 +8,8 @@
   --color-charcoal: #0b0d0c;
   --color-charcoal-soft: #111412;
   --color-ink: #080908;
-  --color-mint: #22c55e;
-  --color-danger: #ef4444;
+  --color-mint: #16a34a;
+  --color-danger: #dc2626;
   --color-amber: #ffb84d;
 
   --font-display: 'Anton', system-ui, sans-serif;
@@ -30,8 +30,8 @@
   100% { transform: translateY(400%); opacity: 0; }
 }
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 15px rgba(34, 197, 94, 0.2); }
-  50% { box-shadow: 0 0 35px rgba(34, 197, 94, 0.45); }
+  0%, 100% { box-shadow: 0 0 15px rgba(22, 163, 74, 0.1); }
+  50% { box-shadow: 0 0 25px rgba(22, 163, 74, 0.25); }
 }
 
 @keyframes marquee {
@@ -231,11 +231,11 @@
   box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 .btn-flip--mint {
-  background: rgba(34, 197, 94, 0.15);
-  background-image: linear-gradient(135deg, rgba(34, 197, 94, 0.25) 0%, rgba(34, 197, 94, 0.05) 100%);
+  background: rgba(22, 163, 74, 0.15);
+  background-image: linear-gradient(135deg, rgba(22, 163, 74, 0.25) 0%, rgba(22, 163, 74, 0.05) 100%);
   color: var(--color-snow);
-  border-color: rgba(34, 197, 94, 0.4);
-  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(34, 197, 94, 0.4);
+  border-color: rgba(22, 163, 74, 0.4);
+  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(22, 163, 74, 0.4);
   font-weight: 700;
 }
 .btn-flip--lg {
@@ -333,13 +333,13 @@
 
 /* Gates (Clean Flat Design) */
 .pipe-wrapper.is-active .pipe-node.is-gate {
-  border-color: rgb(34 197 94 / 0.3);
-  background-color: rgb(34 197 94 / 0.04);
+  border-color: rgba(22, 163, 74, 0.3);
+  background-color: rgba(22, 163, 74, 0.04);
 }
 .pipe-wrapper.is-active .pipe-node.is-gate .pipe-tag {
   color: var(--color-mint);
-  border-color: rgb(34 197 94 / 0.4);
-  background-color: rgb(34 197 94 / 0.1);
+  border-color: rgba(22, 163, 74, 0.4);
+  background-color: rgba(22, 163, 74, 0.1);
 }
 
 /* Timeline Axis Animations */

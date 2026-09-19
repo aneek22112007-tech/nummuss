@@ -122,11 +122,11 @@ function AuthPageContent({ onBack }: AuthPageProps) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5, ease: 'easeInOut' }}
-      className="fixed inset-0 z-50 flex h-screen w-screen flex-col overflow-x-hidden bg-charcoal"
+      className="fixed inset-0 z-50 flex h-screen w-screen flex-col overflow-hidden bg-charcoal"
     >
       
       {/* Background Canvas */}
-      <div className="absolute inset-0 z-0 h-full w-full overflow-hidden bg-charcoal">
+      <div className="fixed inset-0 z-0 h-full w-full overflow-hidden bg-charcoal">
         <HeroCanvas />
         {/* Subtle dark overlay to ensure text readability */}
         <div className="absolute inset-0 bg-charcoal/40" />
@@ -142,19 +142,19 @@ function AuthPageContent({ onBack }: AuthPageProps) {
             <line x1="19" y1="12" x2="5" y2="12"></line>
             <polyline points="12 19 5 12 12 5"></polyline>
           </svg>
-          Back to Nummuss
+          Back
         </button>
       </div>
 
-      <div className="container relative mx-auto flex flex-1 w-full max-w-7xl flex-col px-4 pb-12 lg:px-8">
-        
+      <div className="container relative mx-auto flex h-full flex-col justify-center w-full max-w-7xl px-4 lg:px-8 pb-4">
+
         {/* Form Area */}
-        <div className="relative z-10 w-full max-w-md my-auto mx-auto">
+        <div className="relative z-10 w-full max-w-md mx-auto flex flex-col max-h-full">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-            className="relative overflow-hidden rounded-[2.5rem] border border-snow/10 bg-charcoal/80 p-8 shadow-2xl backdrop-blur-xl md:p-10"
+            className="relative overflow-y-auto overflow-x-hidden no-scrollbar rounded-[2.5rem] glass-panel p-6 sm:p-8 shrink"
           >
             {status === 'success' ? (
               <motion.div 
@@ -167,7 +167,7 @@ function AuthPageContent({ onBack }: AuthPageProps) {
                     <polyline points="20 6 9 17 4 12"></polyline>
                   </svg>
                 </div>
-                <h2 className="font-display text-3xl font-semibold tracking-tight text-snow">
+                <h2 className="font-body text-3xl font-bold tracking-tight text-snow">
                   {mode === 'signup' ? 'Welcome to Nummuss' : 'Welcome back'}
                 </h2>
                 <p className="mt-3 text-snow/60">
@@ -184,14 +184,14 @@ function AuthPageContent({ onBack }: AuthPageProps) {
               </motion.div>
             ) : (
               <>
-                <div className="mb-8">
-                  <div className="mb-6 grid h-12 w-12 place-items-center rounded-xl bg-mint text-xl font-bold text-charcoal">
+                <div className="mb-6">
+                  <div className="mb-4 grid h-10 w-10 place-items-center rounded-xl bg-mint text-xl font-bold text-charcoal">
                     N
                   </div>
-                  <h1 className="font-display text-4xl font-semibold tracking-tight text-snow">
+                  <h1 className="font-body text-3xl font-bold tracking-tight text-snow">
                     {mode === 'signup' ? 'Create Account' : 'Welcome Back'}
                   </h1>
-                  <p className="mt-2 text-snow/60">
+                  <p className="mt-1 text-sm text-snow/60">
                     {mode === 'signup' 
                       ? 'Start using the behavioral safety layer for AI trading agents.'
                       : 'Sign in to access your Nummuss dashboard.'}
@@ -212,7 +212,7 @@ function AuthPageContent({ onBack }: AuthPageProps) {
                   variants={containerVars}
                   initial="hidden"
                   animate="visible"
-                  className="space-y-5" 
+                  className="space-y-4" 
                   onSubmit={handleEmailSubmit}
                 >
                   
@@ -239,19 +239,19 @@ function AuthPageContent({ onBack }: AuthPageProps) {
                   </motion.div>
 
                   {mode === 'signup' && (
-                    <motion.div variants={itemVars} className="space-y-1.5">
+                    <motion.div variants={itemVars} className="space-y-1">
                       <label htmlFor="name" className="text-sm font-medium text-snow/80">Name</label>
                       <input
                         id="name"
                         name="name"
                         type="text"
                         placeholder="John Doe"
-                        className="w-full rounded-2xl border border-snow/10 bg-charcoal/40 px-4 py-3.5 text-snow outline-none transition-colors placeholder:text-snow/30 focus:border-mint focus:bg-charcoal/60 focus:ring-1 focus:ring-mint"
+                        className="w-full rounded-2xl border border-snow/10 bg-charcoal/40 px-4 py-3 text-snow outline-none transition-colors placeholder:text-snow/30 focus:border-mint focus:bg-charcoal/60 focus:ring-1 focus:ring-mint"
                       />
                     </motion.div>
                   )}
                   
-                  <motion.div variants={itemVars} className="space-y-1.5">
+                  <motion.div variants={itemVars} className="space-y-1">
                     <label htmlFor="email" className="text-sm font-medium text-snow/80">Email</label>
                     <input
                       id="email"
@@ -259,11 +259,11 @@ function AuthPageContent({ onBack }: AuthPageProps) {
                       type="email"
                       required
                       placeholder="you@example.com"
-                      className="w-full rounded-2xl border border-snow/10 bg-charcoal/40 px-4 py-3.5 text-snow outline-none transition-colors placeholder:text-snow/30 focus:border-mint focus:bg-charcoal/60 focus:ring-1 focus:ring-mint"
+                      className="w-full rounded-2xl border border-snow/10 bg-charcoal/40 px-4 py-3 text-snow outline-none transition-colors placeholder:text-snow/30 focus:border-mint focus:bg-charcoal/60 focus:ring-1 focus:ring-mint"
                     />
                   </motion.div>
 
-                  <motion.div variants={itemVars} className="space-y-1.5">
+                  <motion.div variants={itemVars} className="space-y-1">
                     <label htmlFor="password" className="text-sm font-medium text-snow/80">Password</label>
                     <input
                       id="password"
@@ -272,14 +272,14 @@ function AuthPageContent({ onBack }: AuthPageProps) {
                       required
                       placeholder="••••••••"
                       minLength={8}
-                      className="w-full rounded-2xl border border-snow/10 bg-charcoal/40 px-4 py-3.5 text-snow outline-none transition-colors placeholder:text-snow/30 focus:border-mint focus:bg-charcoal/60 focus:ring-1 focus:ring-mint"
+                      className="w-full rounded-2xl border border-snow/10 bg-charcoal/40 px-4 py-3 text-snow outline-none transition-colors placeholder:text-snow/30 focus:border-mint focus:bg-charcoal/60 focus:ring-1 focus:ring-mint"
                     />
                   </motion.div>
 
                   <motion.button 
                     variants={itemVars}
                     disabled={status === 'loading'}
-                    className="relative mt-4 flex w-full items-center justify-center rounded-2xl bg-mint px-4 py-4 font-semibold text-charcoal transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:scale-100 disabled:opacity-80"
+                    className="relative mt-2 flex w-full items-center justify-center rounded-2xl bg-mint px-4 py-3.5 font-semibold text-charcoal transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:scale-100 disabled:opacity-80"
                   >
                     {status === 'loading' ? (
                       <div className="h-5 w-5 animate-spin rounded-full border-2 border-charcoal/30 border-t-charcoal"></div>
@@ -293,7 +293,7 @@ function AuthPageContent({ onBack }: AuthPageProps) {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.8 }}
-                  className="mt-8 text-center text-sm text-snow/60"
+                  className="mt-6 text-center text-sm text-snow/60"
                 >
                   {mode === 'signup' ? 'Already have an account? ' : "Don't have an account? "}
                   <button onClick={toggleMode} className="font-semibold text-mint hover:underline">
@@ -308,7 +308,7 @@ function AuthPageContent({ onBack }: AuthPageProps) {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1, duration: 0.5 }}
-            className="mt-6 text-center"
+            className="mt-4 text-center shrink-0"
           >
             <span className="inline-block rounded-full border border-snow/10 bg-charcoal/50 px-3.5 py-1.5 text-xs font-medium uppercase tracking-[0.14em] text-snow/40 backdrop-blur-md">
               Simulation only · No real capital

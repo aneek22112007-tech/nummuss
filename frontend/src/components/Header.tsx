@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { FlipButton } from './ui/FlipButton'
 import { scrollToId } from '../lib/useSmoothScroll'
 import { useAuth } from '../lib/auth'
 
@@ -14,7 +13,7 @@ export function Header({ onOpenMenu, menuOpen, onSignIn }: Props) {
   const [scrolled, setScrolled] = useState(false)
   const [hidden, setHidden] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const { user, isAuthenticated, logout } = useAuth()
+  const { user, isAuthenticated } = useAuth()
 
   useEffect(() => {
     let last = 0
@@ -28,10 +27,6 @@ export function Header({ onOpenMenu, menuOpen, onSignIn }: Props) {
     return () => window.removeEventListener('scroll', onScroll)
   }, [menuOpen])
 
-  const handleLogout = () => {
-    logout()
-    setUserMenuOpen(false)
-  }
 
   return (
     <header
