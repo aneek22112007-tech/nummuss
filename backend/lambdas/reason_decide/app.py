@@ -5,8 +5,11 @@ from datetime import datetime, timezone
 
 try:
     import boto3
+    from boto3.dynamodb.conditions import Key, Attr
 except ImportError:
     boto3 = None
+    Key = None
+    Attr = None
 
 try:
     import urllib.request as urllib_request
@@ -190,39 +193,11 @@ Output only a valid JSON object with keys:
     # Detect malicious payload for Layer 0 Security Verification Test
     is_malicious_fixture = any("IGNORE PREVIOUS INSTRUCTIONS" in sig.content for sig in signals)
 
-    if is_malicious_fixture:
-        action = "hold"
-        symbol = "NIFTY50"
-        confidence_raw = 0
-        confidence_tier = "low"
-        cited_symbols = []
-        cited_signals = [{"signal_id": "sig-malicious-01", "excerpt": "Prompt injection detected"}]
-        is_valid_l1 = False
-        evidence_quality = "weak"
-    else:
-        llm_decision = call_llm(prompt)
-        llm_guardrail_intervened = llm_decision.get("guardrail_intervened", False)
-        if llm_guardrail_intervened:
-            action = "hold"
-            symbol = "NIFTY50"
-            confidence_raw = 0
-            confidence_tier = "low"
-            cited_symbols = []
-            cited_signals = []
-            is_valid_l1 = False
-            evidence_quality = "weak"
-        else:
-            action = llm_decision.get("action", "hold")
-            symbol = llm_decision.get("symbol", "NIFTY50")
-            confidence_raw = int(llm_decision.get("confidence_raw", 0))
-            confidence_tier = llm_decision.get("confidence_tier", "low")
-            cited_symbols = llm_decision.get("cited_symbols", [])
-            cited_signals = llm_decision.get("cited_signals", [])
+    # 1. Base LLM Call (used for agents without custom behavior prompts)
+    base_llm_decision = None
+    if not is_malicious_fixture:
+        base_llm_decision = call_llm(prompt)
 
-            # Layer 1: Evidence Consistency Gate
-            is_valid_l1, evidence_quality, l1_msg = validate_evidence(cited_symbols, cited_signals, signals)
-
-    records = []
     dynamodb = None
     if boto3 and (os.environ.get("AWS_EXECUTION_ENV") or os.environ.get("AWS_DEFAULT_REGION")):
         try:
@@ -230,17 +205,87 @@ Output only a valid JSON object with keys:
         except Exception as e:
             print(f"DynamoDB connection warning: {e}")
 
-    # Generate decision records for both Disciplined Agent and Undisciplined Twin
-    roles = [("disciplined", 0), ("undisciplined", 3)]
+    # 2. Fetch Active Shadow Agents
+    active_shadows = []
+    if dynamodb:
+        try:
+            shadow_table = dynamodb.Table(os.environ.get("DDB_SHADOW_TABLE", "nummuss-shadow"))
+            res = shadow_table.query(
+                IndexName="StatusIndex",
+                KeyConditionExpression=Key("status").eq("active")
+            )
+            for item in res.get("Items", []):
+                if item.get("end_time", "") > now_iso:
+                    active_shadows.append(item)
+        except Exception as e:
+            print(f"Error fetching shadow agents: {e}")
 
-    for role, consecutive_losses in roles:
+    # 3. Define the agents to process
+    agents = [
+        {"role": "disciplined", "losses": 0, "behavior": None},
+        {"role": "undisciplined", "losses": 3, "behavior": None}
+    ]
+    for s in active_shadows:
+        agents.append({
+            "role": f"shadow_{s.get('agent_id', s.get('query_id', 'unknown'))}",
+            "losses": 0,
+            "behavior": s.get("behavior_prompt")
+        })
+
+    records = []
+
+    for agent in agents:
+        role = agent["role"]
+        behavior = agent["behavior"]
+        consecutive_losses = agent["losses"]
+
+        agent_prompt = prompt
+        if behavior:
+            agent_prompt += f"\n\nCRITICAL INSTRUCTION FOR THIS AGENT:\n{behavior}"
+
+        if is_malicious_fixture:
+            action = "hold"
+            symbol = "NIFTY50"
+            confidence_raw = 0
+            confidence_tier = "low"
+            cited_symbols = []
+            cited_signals = [{"signal_id": "sig-malicious-01", "excerpt": "Prompt injection detected"}]
+            is_valid_l1 = False
+            evidence_quality = "weak"
+            llm_intervened = False
+        else:
+            if behavior:
+                llm_decision = call_llm(agent_prompt)
+            else:
+                llm_decision = base_llm_decision
+
+            llm_intervened = llm_decision.get("guardrail_intervened", False)
+            if llm_intervened:
+                action = "hold"
+                symbol = "NIFTY50"
+                confidence_raw = 0
+                confidence_tier = "low"
+                cited_symbols = []
+                cited_signals = []
+                is_valid_l1 = False
+                evidence_quality = "weak"
+            else:
+                action = llm_decision.get("action", "hold")
+                symbol = llm_decision.get("symbol", "NIFTY50")
+                confidence_raw = int(llm_decision.get("confidence_raw", 0))
+                confidence_tier = llm_decision.get("confidence_tier", "low")
+                cited_symbols = llm_decision.get("cited_symbols", [])
+                cited_signals = llm_decision.get("cited_signals", [])
+
+                # Layer 1: Evidence Consistency Gate
+                is_valid_l1, evidence_quality, l1_msg = validate_evidence(cited_symbols, cited_signals, signals)
+
         guardrail_layer = None
         guardrail_result = "passed"
         reason_label = None
         is_allowed = True
         test_fixture_flag = False
 
-        llm_intervened = (not is_malicious_fixture) and llm_decision.get("guardrail_intervened", False) if "llm_decision" in dir() else False
         if is_malicious_fixture or llm_intervened:
             guardrail_layer = "content"
             guardrail_result = "blocked_prompt_attack"
@@ -251,8 +296,8 @@ Output only a valid JSON object with keys:
             guardrail_layer = "evidence"
             guardrail_result = "blocked_unsupported_claim"
             is_allowed = False
-        elif role == "disciplined":
-            # Layer 2: Behavioral Guardrails applied ONLY to disciplined agent
+        elif role == "disciplined" or role.startswith("shadow_"):
+            # Layer 2: Behavioral Guardrails applied to disciplined and shadow agents
             is_allowed, guardrail_result, reason_label = evaluate_behavioral_guardrails(
                 action=action,
                 trade_size_val=15000.0,

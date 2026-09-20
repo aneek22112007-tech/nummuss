@@ -61,6 +61,11 @@ class BackendStack(Stack):
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             removal_policy=data_removal_policy
         )
+        shadow_table.add_global_secondary_index(
+            index_name="StatusIndex",
+            partition_key=dynamodb.Attribute(name="status", type=dynamodb.AttributeType.STRING),
+            sort_key=dynamodb.Attribute(name="end_time", type=dynamodb.AttributeType.STRING)
+        )
 
         # Evidence Bucket
         evidence_bucket = s3.Bucket(
@@ -122,6 +127,7 @@ class BackendStack(Stack):
             environment={
                 "DDB_DECISIONS_TABLE": decisions_table.table_name,
                 "DDB_SIGNALS_TABLE": signals_table.table_name,
+                "DDB_SHADOW_TABLE": shadow_table.table_name,
                 "S3_EVIDENCE_BUCKET": evidence_bucket.bucket_name,
                 "AWS_BEARER_TOKEN_BEDROCK": os.environ.get("AWS_BEARER_TOKEN_BEDROCK", ""),
                 "BEDROCK_REGION": os.environ.get("BEDROCK_REGION", "eu-north-1"),
@@ -142,6 +148,7 @@ class BackendStack(Stack):
         decisions_table.grant_write_data(reason_decide_lambda)
         signals_table.grant_read_data(reason_decide_lambda)
         evidence_bucket.grant_read(reason_decide_lambda)
+        shadow_table.grant_read_data(reason_decide_lambda)
 
         # Ingestion invokes reasoning only after it has persisted the latest signals.
         fetch_signal_lambda.add_environment("REASON_DECIDE_FUNCTION_NAME", reason_decide_lambda.function_name)
@@ -156,6 +163,9 @@ class BackendStack(Stack):
             environment={
                 "DDB_DECISIONS_TABLE": decisions_table.table_name,
                 "DDB_SHADOW_TABLE": shadow_table.table_name,
+                "AWS_BEARER_TOKEN_BEDROCK": os.environ.get("AWS_BEARER_TOKEN_BEDROCK", ""),
+                "BEDROCK_REGION": os.environ.get("BEDROCK_REGION", "eu-north-1"),
+                "BEDROCK_MODEL_ID": os.environ.get("BEDROCK_MODEL_ID", "anthropic.claude-3-5-sonnet-20241022-v2:0"),
                 "PYTHONPATH": "/var/runtime:/opt"
             },
             layers=[common_layer],

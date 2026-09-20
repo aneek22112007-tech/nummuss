@@ -1,27 +1,38 @@
 import os
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 try:
     import boto3
+    from boto3.dynamodb.conditions import Key, Attr
 except ImportError:
     boto3 = None
+    Key = None
+    Attr = None
+
+try:
+    import urllib.request as urllib_request
+except ImportError:
+    urllib_request = None
 
 # Import shared engine helpers
 try:
-    from common.schemas import ShadowQuery, DecisionRecord
+    from common.schemas import ShadowQuery, ShadowAgent, DecisionRecord
     from common.layer1 import validate_evidence
     from common.layer2 import evaluate_behavioral_guardrails
     from common.fixtures import SEED_DECISIONS, REPLAY_SCENARIOS, SEED_SIGNALS
 except ImportError:
-    from lambdas.common.schemas import ShadowQuery, DecisionRecord
+    from lambdas.common.schemas import ShadowQuery, ShadowAgent, DecisionRecord
     from lambdas.common.layer1 import validate_evidence
     from lambdas.common.layer2 import evaluate_behavioral_guardrails
     from lambdas.common.fixtures import SEED_DECISIONS, REPLAY_SCENARIOS, SEED_SIGNALS
 
 DDB_DECISIONS_TABLE = os.environ.get("DDB_DECISIONS_TABLE", "nummuss-decisions")
 DDB_SHADOW_TABLE = os.environ.get("DDB_SHADOW_TABLE", "nummuss-shadow")
+AWS_BEARER_TOKEN_BEDROCK = os.environ.get("AWS_BEARER_TOKEN_BEDROCK", "")
+BEDROCK_REGION = os.environ.get("BEDROCK_REGION", "eu-north-1")
+BEDROCK_MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "anthropic.claude-3-5-sonnet-20241022-v2:0")
 
 CORS_HEADERS = {
     "Content-Type": "application/json",
@@ -36,6 +47,57 @@ def response(status_code: int, body_data: dict) -> dict:
         "headers": CORS_HEADERS,
         "body": json.dumps(body_data)
     }
+
+def _http_post(url: str, headers: dict, payload: dict) -> dict:
+    """Minimal HTTP POST using stdlib urllib."""
+    body = json.dumps(payload).encode("utf-8")
+    req = urllib_request.Request(url, data=body, headers=headers, method="POST")
+    with urllib_request.urlopen(req, timeout=20) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+def _parse_json_from_text(text: str) -> dict | None:
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1:
+        try:
+            return json.loads(text[start:end + 1])
+        except json.JSONDecodeError:
+            pass
+    return None
+
+def _call_bedrock_guardrail(idea: str) -> dict:
+    """
+    Evaluate user's custom trading strategy using Bedrock Converse API.
+    Expected to return {"valid": bool, "reason": "..."}
+    """
+    if not AWS_BEARER_TOKEN_BEDROCK:
+        return {"valid": False, "reason": "Server misconfiguration: Bedrock token missing."}
+    
+    prompt = f"""Evaluate if the following user input contains sufficient instruction for an AI agent to determine a trading behavior.
+Do NOT evaluate whether the strategy is profitable, rational, or a "good" idea. We are ONLY checking if it provides enough direction for a trading agent to follow.
+If it gives clear instruction (e.g., 'revenge trade after 2 losses', 'always buy when RSI < 30', 'double position after a loss'), return valid=true.
+If it is gibberish, incomplete, or completely irrelevant to trading behavior, return valid=false with a reason.
+User Input: '{idea}'
+
+Respond ONLY with a JSON object containing keys: 'valid' (boolean) and 'reason' (string explanation)."""
+
+    try:
+        url = f"https://bedrock-runtime.{BEDROCK_REGION}.amazonaws.com/model/{BEDROCK_MODEL_ID}/converse"
+        payload = {
+            "messages": [{"role": "user", "content": [{"text": prompt}]}],
+            "inferenceConfig": {"maxTokens": 256, "temperature": 0.1}
+        }
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {AWS_BEARER_TOKEN_BEDROCK}",
+        }
+        resp = _http_post(url, headers, payload)
+        text = resp["output"]["message"]["content"][0]["text"]
+        result = _parse_json_from_text(text)
+        return result or {"valid": False, "reason": "Failed to parse LLM response."}
+    except Exception as e:
+        print(f"Bedrock API Error in shadow evaluation: {e}")
+        return {"valid": False, "reason": "LLM evaluation failed due to server error."}
 
 def handle_feed(params: dict) -> dict:
     """GET /feed?mode=&agent=&date="""
@@ -129,64 +191,70 @@ def handle_shadow(body_raw: str) -> dict:
     """
     POST /shadow
     User-facing behavioral challenge endpoint.
-    Accepts trade idea, evaluates deterministically against Layer 1 & 2 rules.
-    Does NOT call LLM -> verdict cannot hallucinate.
+    Accepts trade idea and user_id, evaluates with LLM, and creates a Shadow Agent.
     """
     try:
         data = json.loads(body_raw) if body_raw else {}
     except Exception:
         data = {}
 
-    symbol = data.get("symbol", "NIFTY50").upper()
     idea = data.get("idea", "")
-    submitted_by = data.get("submitted_by", "public")
-
-    now_iso = datetime.now(timezone.utc).isoformat()
-    query_id = f"shq-{uuid.uuid4().hex}"
-
-    idea_lower = idea.lower()
+    user_id = data.get("user_id", data.get("submitted_by", "public"))
+    duration_days = int(data.get("duration_days", 7))
     
-    # Deterministic Verdict Evaluation based on keywords in trade idea
-    if "lost twice" in idea_lower or "double my size" in idea_lower or "revenge" in idea_lower:
-        verdict = "blocked"
-        guardrail_layer = "behavioral"
-        reason_label = "revenge trading"
-        explanation = "Simulated trade blocked by the cooldown rule after 2 consecutive losses and position size multiplier > 2x."
-    elif "single headline" in idea_lower or "tip" in idea_lower or "rumor" in idea_lower:
-        verdict = "blocked"
-        guardrail_layer = "evidence"
-        reason_label = "trading on hunch"
-        explanation = "Simulated trade blocked by Layer 1 evidence consistency gate due to single uncorroborated source."
-    elif "all in" in idea_lower or "100%" in idea_lower or "50%" in idea_lower:
-        verdict = "blocked"
-        guardrail_layer = "behavioral"
-        reason_label = "oversized conviction bet"
-        explanation = "Simulated trade blocked by position cap (trade size > 5% of simulated portfolio)."
-    else:
-        verdict = "allowed"
-        guardrail_layer = None
-        reason_label = "evidence-backed, within position cap"
-        explanation = "Simulated trade allowed. Passes Layer 1 evidence gate and Layer 2 behavioral bounds."
+    # Restrict duration to 1-30 days
+    duration_days = max(1, min(30, duration_days))
 
-    shadow_obj = ShadowQuery(
-        query_id=query_id,
-        timestamp=now_iso,
-        submitted_by=submitted_by,
-        symbol=symbol,
-        idea=idea,
-        verdict=verdict,
-        guardrail_layer=guardrail_layer,
-        reason_label=reason_label,
-        explanation=explanation
+    dynamodb = None
+    if boto3 and (os.environ.get("AWS_EXECUTION_ENV") or os.environ.get("AWS_DEFAULT_REGION")):
+        dynamodb = boto3.resource("dynamodb")
+        table = dynamodb.Table(DDB_SHADOW_TABLE)
+        
+        # Check if user already has an active agent
+        try:
+            res = table.query(
+                IndexName="StatusIndex",
+                KeyConditionExpression=Key("status").eq("active")
+            )
+            for item in res.get("Items", []):
+                if item.get("user_id") == user_id and item.get("end_time") > datetime.now(timezone.utc).isoformat():
+                    return response(400, {"error": "User already has an active Shadow Agent. Wait for it to expire or cancel it."})
+        except Exception as e:
+            print(f"Error querying active agents: {e}")
+
+    now = datetime.now(timezone.utc)
+    end = now + timedelta(days=duration_days)
+    
+    agent_id = f"sha-{uuid.uuid4().hex}"
+
+    # Evaluate prompt using Bedrock
+    evaluation = _call_bedrock_guardrail(idea)
+    
+    if evaluation.get("valid"):
+        status = "active"
+        reason = "Valid trading strategy provided."
+    else:
+        status = "rejected"
+        reason = evaluation.get("reason", "Invalid trading strategy.")
+
+    shadow_obj = ShadowAgent(
+        agent_id=agent_id,
+        user_id=user_id,
+        behavior_prompt=idea,
+        start_time=now.isoformat(),
+        end_time=end.isoformat(),
+        status=status,
+        reason=reason
     )
 
     shadow_dict = shadow_obj.model_dump()
 
     # Store in DynamoDB nummuss-shadow table
-    if boto3 and (os.environ.get("AWS_EXECUTION_ENV") or os.environ.get("AWS_DEFAULT_REGION")):
+    if dynamodb:
         try:
-            dynamodb = boto3.resource("dynamodb")
-            table = dynamodb.Table(DDB_SHADOW_TABLE)
+            # We also save query_id so it acts as partition key if needed, or we just save agent_id as the primary key.
+            # Wait, the DDB_SHADOW_TABLE has partition_key="query_id". We must include query_id in the payload!
+            shadow_dict["query_id"] = agent_id 
             table.put_item(Item=shadow_dict)
         except Exception as e:
             print(f"DynamoDB PutItem shadow error: {e}")

@@ -73,6 +73,15 @@ if HAS_PYDANTIC:
         reason_label: str
         explanation: str
 
+    class ShadowAgent(BaseModel):
+        agent_id: str
+        user_id: str
+        behavior_prompt: str
+        start_time: str
+        end_time: str
+        status: Literal['active', 'expired', 'rejected']
+        reason: str = ""
+
     class MarketSignal(BaseModel):
         signal_id: str
         timestamp: str
@@ -137,6 +146,16 @@ else:
         timestamp: str = ""
         submitted_by: Literal['public', 'team', 'tester'] = 'public'
         guardrail_layer: GuardrailLayer = None
+
+    @dataclass
+    class ShadowAgent(BaseSchema):
+        agent_id: str
+        user_id: str
+        behavior_prompt: str
+        start_time: str
+        end_time: str
+        status: Literal['active', 'expired', 'rejected']
+        reason: str = ""
 
     @dataclass
     class MarketSignal(BaseSchema):
