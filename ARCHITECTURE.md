@@ -1,60 +1,110 @@
-# Architecture
+# Nummuss Architecture & System Flow
 
 Nummuss is an event-driven serverless application built on AWS, designed to enforce deterministic behavioral safety guardrails on AI-generated trading decisions.
 
-## System Components
+## 1. Core Concept & Agents
 
-### 1. The React Dashboard (`frontend/`)
-- A static React single-page application built with Vite and TailwindCSS.
-- Framer Motion and GSAP handle complex animations and Lenis for smooth scrolling.
-- Hosted statically (can be deployed to S3/CloudFront).
-- Interacts with the backend entirely through API Gateway REST calls.
+Nummuss explores behavioral guardrails in AI trading by running distinct agents simultaneously on the same market signals:
 
-### 2. Event-Driven AI Pipeline (`backend/`)
+1. **Disciplined Agent**
+   - Follows all strict safety rules (Layer 1 Evidence, Layer 2 Behavioral Guardrails like daily loss caps, position limits, cooldowns).
+   - Serves as the "safe" benchmark.
+   
+2. **Undisciplined Twin**
+   - Receives the exact same signals and uses the exact same model, but intentionally bypasses Layer 2 behavioral guardrails.
+   - Purpose: To provide a counterfactual (A/B test) demonstrating what happens when risky behaviors (revenge trading, FOMO) are allowed.
 
-#### A. Fetch Signal (`lambdas/fetch_signal`)
-- **Trigger**: Amazon EventBridge chron (e.g., every 10 minutes).
-- **Function**: Polls market data, news sources, or uses seeded deterministic fixtures for the demonstration.
-- **Storage**: Appends structured signals to `nummuss-signals` DynamoDB table and raw artifacts to S3.
+3. **Shadow Agent (Custom User Agent)**
+   - A fully customizable 3rd trading agent instantiated by the user via the `/shadow` API.
+   - Users provide a custom trading behavior prompt (e.g., "always buy when RSI < 30", "double my size if I lose"). 
+   - A Bedrock guardrail checks if the prompt is *sufficient* (i.e. contains clear instructions for an agent) without judging if the strategy is profitable. 
+   - If valid, this Shadow Agent is spun up to trade live for a chosen duration (1 to 30 days). A user is limited to 1 active shadow agent at a time.
+   - The user can track its performance in real-time against the predefined agents.
 
-#### B. Reason & Decide (`lambdas/reason_decide`)
-- **Trigger**: Currently manual or downstream of `fetch_signal`.
-- **Reasoning**: Queries Amazon Bedrock (Claude 3 Haiku) to generate a trade decision based on recent signals.
-- **Safety Enforcement**:
-  - **Layer 0**: Bedrock Guardrails scan for malicious prompts or banned content.
-  - **Layer 1**: Deterministic validation. Extracted symbols and claims must map directly to the `nummuss-signals` ledger.
-  - **Layer 2**: Behavioral rules (e.g., maximum daily loss, position sizing caps, cooldown after consecutive losses). 
-- **The Twin Experiment**: Generates decisions for *both* a 'disciplined' agent (bound by Layer 2) and an 'undisciplined' twin (Layer 2 bypassed) to measure counterfactual performance.
-- **Storage**: Saves decisions to the `nummuss-decisions` DynamoDB table.
-
-#### C. API Handler (`lambdas/api_handler`)
-- **Trigger**: API Gateway HTTP requests from the frontend.
-- **Endpoints**:
-  - `GET /feed`: Returns the stream of decisions for the dashboard.
-  - `GET /decision/{id}`: Detailed view of a single decision and its guardrail trace.
-  - `GET /counterfactual`: Aggregated metrics comparing the disciplined agent to the twin.
-  - `POST /shadow`: A live "challenge" endpoint that evaluates user-submitted trade ideas against Layer 1 and 2 rules deterministically without an LLM call.
-
-### 3. Shared Library (`lambdas/common`)
-- Deployed as a Lambda Layer (`CommonLayer`) mapped to `/opt` in the Lambda execution environment.
-- Contains Pydantic data schemas, Layer 1/2 logic, and deterministic test fixtures.
-
-## Infrastructure as Code
-The entire backend stack is defined in AWS CDK (`backend/infrastructure/nummuss_stack.py`). It provisions the DynamoDB tables, S3 bucket, Lambda functions, IAM roles, EventBridge rules, and API Gateway.
-
-## Data Flow Diagram
+## 2. System Flow
 
 ```mermaid
-graph TD
-    Client[React Dashboard] -->|HTTP| API(API Gateway)
-    API --> APILambda(api_handler)
-    APILambda <--> DDB[(DynamoDB)]
+flowchart TD
+    %% Define styles for clarity
+    classDef user fill:#e1f5fe,stroke:#0288d1,stroke-width:2px;
+    classDef lambda fill:#fff3e0,stroke:#f57c00,stroke-width:2px;
+    classDef db fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;
+    classDef ai fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px;
+
+    User([User on Dashboard]):::user
+    API[API Gateway]
     
-    Event[EventBridge] -->|Trigger| Fetch(fetch_signal)
-    Fetch --> DDB
-    Fetch --> S3[(S3 Evidence)]
+    %% API flows
+    User -- "Submits custom idea\n(POST /shadow)" --> API
+    User -- "Views Agent Feeds\n(GET /feed)" --> API
     
-    Fetch -->|Triggers| Decide(reason_decide)
-    Decide <--> Bedrock[Amazon Bedrock]
-    Decide --> DDB
+    APIHandler[api_handler Lambda]:::lambda
+    API --> APIHandler
+    
+    BedrockGuardrail[Bedrock: Guardrail Check]:::ai
+    APIHandler -- "Is idea sufficient?" --> BedrockGuardrail
+    
+    DDBShadow[(nummuss-shadow Table)]:::db
+    APIHandler -- "If valid, save active agent" --> DDBShadow
+    
+    %% Background cron flow
+    Cron((EventBridge\nEvery 10 mins))
+    FetchSignal[fetch_signal Lambda]:::lambda
+    DDBSignals[(nummuss-signals Table)]:::db
+    
+    Cron --> FetchSignal
+    FetchSignal -- "Save new market signals" --> DDBSignals
+    
+    %% AI Engine flow
+    ReasonDecide[reason_decide Lambda]:::lambda
+    FetchSignal -- "Triggers reasoning" --> ReasonDecide
+    
+    ReasonDecide -- "1. Fetches Signals" --> DDBSignals
+    ReasonDecide -- "2. Fetches Active Shadows" --> DDBShadow
+    
+    BedrockConverse[Bedrock: Converse API]:::ai
+    ReasonDecide -- "3. Base Prompt for Predefined Agents" --> BedrockConverse
+    ReasonDecide -- "4. Custom Prompts for Shadow Agents" --> BedrockConverse
+    
+    DDBDecisions[(nummuss-decisions Table)]:::db
+    ReasonDecide -- "5. Applies Layer 1/2 Guardrails\n& Saves Decisions" --> DDBDecisions
+    
+    DDBDecisions -. "Feeds data to" .-> APIHandler
 ```
+
+1. **Ingestion**: EventBridge triggers the `fetch_signal` Lambda every 10 minutes. It fetches market data and stores it in DynamoDB (`nummuss-signals`).
+2. **Reasoning Engine**: `fetch_signal` directly invokes `reason_decide`.
+3. **Multi-Agent Evaluation**: 
+   - `reason_decide` queries DynamoDB via a Global Secondary Index for all active Shadow Agents.
+   - It performs a base LLM inference via Amazon Bedrock for the predefined agents.
+   - It iterates through all active Shadow Agents, performing a *custom* LLM inference for each by injecting their unique `behavior_prompt`.
+   - All agents' decisions are pushed through Layer 1 & 2 guardrails.
+   - Decisions are saved to `nummuss-decisions` in DynamoDB.
+4. **Data Retrieval**: The React frontend uses the `api_handler` to fetch the decision feeds (`GET /feed?agent=shadow_<user_agent_id>`). 
+
+## 3. The Shadow Function Detail
+
+Previously a simple testing endpoint, the Shadow Function is now a fully automated lifecycle:
+- **Initialization (`POST /shadow`)**: Accepts a `user_id`, a custom `idea`, and a `duration_days` (1-30). 
+- **LLM Guardrail**: The `api_handler` calls Bedrock to check *sufficiency*. It asks: "Does this text contain actionable trading instructions?" It explicitly ignores whether the instructions are rational (e.g., allowing a user to test "go all in on a loss").
+- **Persistence**: Saved as an `active` agent in the `nummuss-shadow` DynamoDB table using a Global Secondary Index (`StatusIndex`).
+- **Execution**: Automatically picked up by the `reason_decide` cron job until the `end_time` expires.
+
+## 4. Shared Library (`lambdas/common`)
+- Deployed as a Lambda Layer (`CommonLayer`) mapped to `/opt` in the Lambda execution environment.
+- Contains Pydantic/dataclass data schemas, Layer 1/2 logic, and deterministic test fixtures.
+
+## 5. Deployment Details & Minor Gotchas
+
+1. **API Keys in Environment Variables**:
+   - `AWS_BEARER_TOKEN_BEDROCK`: Ensure the *entire* token is copied into the `.env` file before deployment.
+   - Ensure the Bedrock Model ID matches the token's region and capabilities (default is `anthropic.claude-3-5-sonnet-20241022-v2:0` in `eu-north-1`).
+2. **DynamoDB Global Secondary Index (GSI)**:
+   - The `nummuss-shadow` table relies heavily on a GSI called `StatusIndex` on the `status` attribute. If deploying to an existing stack, CDK will handle index creation automatically, but be aware of index creation times on large tables.
+3. **Lambda Timeout & Memory**:
+   - Because `reason_decide` now potentially makes *multiple* synchronous LLM calls (1 base + N shadow agents), the Lambda timeout is set to 60 seconds. 
+   - **Scale Warning**: If thousands of shadow agents are active simultaneously, the lambda will hit the 60-second limit. At scale, you will need to decouple the shadow agent execution (e.g., using SQS queues to trigger parallel Lambdas for each agent).
+4. **Frontend Asset Deployment**:
+   - You **must** run `npm run build` in the `frontend` directory *before* deploying the backend with CDK. The CDK stack (`s3deploy.BucketDeployment`) relies on the `frontend/dist` directory existing to upload it to the S3 static hosting bucket.
+5. **Vite API Routing**:
+   - In production, CloudFront proxies API requests from `/api/*` to the API Gateway using a CloudFront Function (`ApiPathRewrite`) to strip the `/api` prefix. Local development uses Vite's `server.proxy` to accomplish the same thing.
