@@ -27,13 +27,14 @@ except ImportError:
 
 DDB_DECISIONS_TABLE = os.environ.get("DDB_DECISIONS_TABLE", "nummuss-decisions")
 DDB_SIGNALS_TABLE = os.environ.get("DDB_SIGNALS_TABLE", "nummuss-signals")
-GROK_API_KEY = os.environ.get("GROK_API_KEY", "")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+AWS_BEARER_TOKEN_BEDROCK = os.environ.get("AWS_BEARER_TOKEN_BEDROCK", "")
+BEDROCK_REGION = os.environ.get("BEDROCK_REGION", "eu-north-1")
+BEDROCK_MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "anthropic.claude-3-5-sonnet-20241022-v2:0")
 MEGABULL_API_KEY = os.environ.get("MEGABULL_API_KEY", "")
 MEGABULL_BASE_URL = os.environ.get("MEGABULL_BASE_URL", "https://api.megabull.app/v1")
 MEGABULL_ORDER_QTY = int(os.environ.get("MEGABULL_ORDER_QTY", "1"))
 
-# --- LLM fallback chain: Grok (P1) → Gemini (P2) → deterministic hold ---
+# --- LLM chain: Amazon Bedrock → deterministic hold ---
 _LLM_FALLBACK = {
     "action": "hold",
     "symbol": "NIFTY50",
@@ -94,80 +95,57 @@ def _parse_json_from_text(text: str) -> dict | None:
     return None
 
 
-def _call_grok(prompt_text: str) -> dict | None:
+def _call_bedrock(prompt_text: str) -> dict | None:
     """
-    Priority 1: xAI Grok API (OpenAI-compatible endpoint).
+    Amazon Bedrock Converse API (via HTTP with Bearer Token).
     Returns parsed dict or None on failure.
     """
-    if not GROK_API_KEY:
+    if not AWS_BEARER_TOKEN_BEDROCK:
+        print("Bedrock token missing.")
         return None
     try:
+        url = f"https://bedrock-runtime.{BEDROCK_REGION}.amazonaws.com/model/{BEDROCK_MODEL_ID}/converse"
         payload = {
-            "model": "grok-3-mini",
-            "messages": [{"role": "user", "content": prompt_text}],
-            "max_tokens": 512,
-            "temperature": 0.2,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [{"text": prompt_text}]
+                }
+            ],
+            "inferenceConfig": {
+                "maxTokens": 512,
+                "temperature": 0.2
+            }
         }
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {GROK_API_KEY}",
+            "Authorization": f"Bearer {AWS_BEARER_TOKEN_BEDROCK}",
         }
-        resp = _http_post("https://api.x.ai/v1/chat/completions", headers, payload)
-        text = resp["choices"][0]["message"]["content"]
-        result = _parse_json_from_text(text)
-        if result:
-            print("LLM provider: Grok (P1)")
-        return result
-    except Exception as err:
-        print(f"Grok API error (falling back to Gemini): {err}")
-        return None
-
-
-def _call_gemini(prompt_text: str) -> dict | None:
-    """
-    Priority 2: Google Gemini API.
-    Returns parsed dict or None on failure.
-    """
-    if not GEMINI_API_KEY:
-        return None
-    try:
-        url = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-        )
-        payload = {
-            "contents": [{"parts": [{"text": prompt_text}]}],
-            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 512},
-        }
-        headers = {"Content-Type": "application/json"}
         resp = _http_post(url, headers, payload)
-        text = resp["candidates"][0]["content"]["parts"][0]["text"]
+        
+        # Bedrock Converse API response format
+        text = resp["output"]["message"]["content"][0]["text"]
         result = _parse_json_from_text(text)
         if result:
-            print("LLM provider: Gemini (P2)")
+            print(f"LLM provider: Bedrock ({BEDROCK_MODEL_ID})")
         return result
     except Exception as err:
-        print(f"Gemini API error (using deterministic fallback): {err}")
+        print(f"Bedrock API error (falling back to deterministic hold): {err}")
         return None
 
 
 def call_llm(prompt_text: str) -> dict:
     """
     Unified LLM caller:
-      1. Try Grok (xAI) — Priority 1
-      2. Try Gemini (Google) — Priority 2
-      3. Deterministic hold — fail-safe fallback
-    Returns a decision dict identical in shape to the old Bedrock response.
+      1. Try Amazon Bedrock
+      2. Deterministic hold — fail-safe fallback
+    Returns a decision dict.
     """
-    result = _call_grok(prompt_text)
+    result = _call_bedrock(prompt_text)
     if result:
         return result
 
-    result = _call_gemini(prompt_text)
-    if result:
-        return result
-
-    print("Both LLM providers unavailable. Using deterministic hold fallback.")
+    print("Bedrock unavailable. Using deterministic hold fallback.")
     return _LLM_FALLBACK
 
 def query_recent_signals() -> list:
@@ -191,7 +169,7 @@ def handler(event, context):
     """
     reason_decide Lambda Handler:
     1. Fetches recent signals
-    2. Calls LLM: Grok (P1) → Gemini (P2) → deterministic fallback
+    2. Calls LLM: Amazon Bedrock → deterministic fallback
     3. Layer 1: Evidence Consistency Gate
     4. Layer 2: Behavioral Guardrails (active for disciplined, bypassed for undisciplined twin)
     5. Stores DecisionRecords in DynamoDB
