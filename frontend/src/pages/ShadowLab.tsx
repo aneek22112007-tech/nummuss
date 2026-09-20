@@ -1,161 +1,124 @@
-/**
- * Shadow Lab Page - /shadow
- * Interactive trade idea testing - "What would NUMMUSS do?"
- */
+/** A user-owned, bounded paper-trading agent. */
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { api, PaperPerformance, ShadowAgent, ShadowPerformanceResponse } from '../lib/api'
 import { useShadow } from '../lib/useApi'
+import { useAuth } from '../lib/auth'
 
-export default function ShadowLab() {
-  const [symbol, setSymbol] = useState('')
-  const [idea, setIdea] = useState('')
-  const [result, setResult] = useState<any>(null)
-  const [step, setStep] = useState<'input' | 'processing' | 'result'>('input')
+const POLL_INTERVAL_MS = 10_000
 
-  const { testIdea } = useShadow()
+function money(value?: number) {
+  if (typeof value !== 'number') return '—'
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value)
+}
 
-  const handleSubmit = async () => {
-    if (!symbol.trim() || !idea.trim()) return
-
-    setStep('processing')
-    setResult(null)
-
-    // Simulate processing steps
-    await new Promise((resolve) => setTimeout(resolve, 800))
-    
-    const response = await testIdea(symbol, idea)
-    
-    await new Promise((resolve) => setTimeout(resolve, 600))
-    setResult(response)
-    setStep('result')
-  }
-
-  const handleReset = () => {
-    setSymbol('')
-    setIdea('')
-    setResult(null)
-    setStep('input')
-  }
-
+function PortfolioCard({ label, value, accent = 'text-snow' }: { label: string; value?: Partial<PaperPerformance>; accent?: string }) {
+  const hasPerformance = typeof value?.current_value_inr === 'number'
+  const pnl = value?.pnl_inr
   return (
-    <div className="p-8 max-w-[1000px] mx-auto space-y-8">
-      {/* Header */}
-      <div className="text-center">
-        <h1 className="text-5xl font-display text-snow mb-4">Shadow Lab</h1>
-        <p className="text-xl text-snow/60 mb-3 tracking-wide">WHAT WOULD NUMMUSS DO?</p>
-        <p className="text-snow/60 max-w-2xl mx-auto">
-          Enter a simulated trade idea and see how Nummuss evaluates it through behavioral guardrails.
-        </p>
-      </div>
-
-      {/* Input Form */}
-      {step === 'input' && (
-        <div className="bg-[#111412] border border-snow/10 rounded-2xl p-8 space-y-6">
-          <div>
-            <label className="block text-sm text-snow/70 mb-2 uppercase tracking-wide">Symbol</label>
-            <input
-              type="text"
-              value={symbol}
-              onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-              placeholder="BTCINR"
-              className="w-full px-4 py-3 bg-[#060807] border border-snow/10 rounded-lg text-snow font-mono focus:outline-none focus:border-snow/30 transition-colors"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm text-snow/70 mb-2 uppercase tracking-wide">Trade Idea</label>
-            <textarea
-              value={idea}
-              onChange={(e) => setIdea(e.target.value)}
-              placeholder="Describe your trade idea..."
-              rows={6}
-              className="w-full px-4 py-3 bg-[#060807] border border-snow/10 rounded-lg text-snow resize-none focus:outline-none focus:border-snow/30 transition-colors"
-            />
-          </div>
-
-          <button
-            onClick={handleSubmit}
-            disabled={!symbol.trim() || !idea.trim()}
-            className="w-full px-6 py-4 bg-snow text-charcoal font-bold rounded-lg hover:bg-snow/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed uppercase tracking-wide text-sm"
-          >
-            Run Through Nummuss →
-          </button>
-        </div>
-      )}
-
-      {/* Processing */}
-      {step === 'processing' && (
-        <div className="bg-[#060807] border border-snow/10 rounded-2xl p-12 space-y-6">
-          <ProcessingStep label="READING IDEA" active delay={0} />
-          <ProcessingStep label="CHECKING EVIDENCE" active delay={300} />
-          <ProcessingStep label="CHECKING BEHAVIOR" active delay={600} />
-          <ProcessingStep label="VERDICT" active delay={900} />
-        </div>
-      )}
-
-      {/* Result */}
-      {step === 'result' && result && (
-        <div className="space-y-6">
-          <div className="bg-[#060807] border border-snow/10 rounded-2xl p-8">
-            {/* Verdict */}
-            <div className="text-center mb-8">
-              <div
-                className={`inline-block px-8 py-4 rounded-xl font-mono font-bold text-3xl uppercase tracking-wide ${
-                  result.verdict === 'blocked'
-                    ? 'bg-danger/20 border-2 border-danger text-danger'
-                    : 'bg-mint/20 border-2 border-mint text-mint'
-                }`}
-              >
-                {result.verdict}
-              </div>
-            </div>
-
-            {/* Details */}
-            <div className="space-y-4">
-              {result.guardrail_layer && (
-                <div className="pb-4 border-b border-snow/10">
-                  <p className="text-xs uppercase tracking-widest text-snow/40 mb-2">GUARDRAIL LAYER</p>
-                  <p className="text-lg font-mono text-snow">{result.guardrail_layer}</p>
-                </div>
-              )}
-
-              <div className="pb-4 border-b border-snow/10">
-                <p className="text-xs uppercase tracking-widest text-snow/40 mb-2">REASON</p>
-                <p className="text-lg font-bold text-snow">{result.reason_label}</p>
-              </div>
-
-              <div>
-                <p className="text-xs uppercase tracking-widest text-snow/40 mb-2">WHY?</p>
-                <p className="text-snow/80 leading-relaxed">{result.explanation}</p>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={handleReset}
-            className="w-full px-6 py-3 border border-snow/20 text-snow/70 rounded-lg hover:border-snow/40 hover:text-snow transition-colors uppercase tracking-wide text-sm"
-          >
-            Test Another Idea
-          </button>
-        </div>
-      )}
+    <div className="rounded-xl border border-snow/10 bg-[#0a0d0b] p-5">
+      <p className="text-xs uppercase tracking-widest text-snow/45">{label}</p>
+      <p className={`mt-2 text-2xl font-mono font-bold ${accent}`}>{money(value?.current_value_inr)}</p>
+      {hasPerformance ? <><p className={`mt-1 font-mono text-sm ${(pnl ?? 0) > 0 ? 'text-mint' : (pnl ?? 0) < 0 ? 'text-danger' : 'text-snow/50'}`}>{(pnl ?? 0) >= 0 ? '+' : ''}{money(pnl)} P&L · {value?.trades_taken ?? 0} paper trades</p><p className="mt-3 text-xs text-snow/40">Last action: {(value?.last_action ?? 'hold').toUpperCase()}</p></> : <p className="mt-3 text-sm text-snow/45">Awaiting the first live decision.</p>}
     </div>
   )
 }
 
-function ProcessingStep({ label, active, delay }: { label: string; active: boolean; delay: number }) {
-  const [visible, setVisible] = useState(false)
+export default function ShadowLab() {
+  const { user, isLoading: authLoading } = useAuth()
+  const { createAgent, loading: creating } = useShadow()
+  const [symbol, setSymbol] = useState('')
+  const [idea, setIdea] = useState('')
+  const [durationDays, setDurationDays] = useState(7)
+  const [agent, setAgent] = useState<ShadowAgent | null>(null)
+  const [performance, setPerformance] = useState<ShadowPerformanceResponse | null>(null)
+  const [loadingAgent, setLoadingAgent] = useState(true)
+  const [message, setMessage] = useState<string | null>(null)
 
-  useState(() => {
-    if (active) {
-      setTimeout(() => setVisible(true), delay)
+  const refresh = useCallback(async () => {
+    if (!user) return
+    try {
+      const active = await api.activeShadow(user.id)
+      setAgent(active.agent)
+      if (active.agent) setPerformance(await api.shadowPerformance(active.agent.agent_id, user.id))
+      else setPerformance(null)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to load your Shadow Agent.')
+    } finally {
+      setLoadingAgent(false)
     }
-  })
+  }, [user])
+
+  useEffect(() => { void refresh() }, [refresh])
+
+  useEffect(() => {
+    if (!agent || !user) return
+    const id = window.setInterval(() => void refresh(), POLL_INTERVAL_MS)
+    return () => window.clearInterval(id)
+  }, [agent, refresh, user])
+
+  const submit = async () => {
+    if (!user) return
+    setMessage(null)
+    const result = await createAgent(user.id, symbol.trim(), idea.trim(), durationDays)
+    if (!result) {
+      setMessage('The strategy was not started. Add a concrete action and when it should happen, then try again.')
+      return
+    }
+    setAgent(result.agent)
+    setPerformance({ agent: result.agent, benchmarks: {} as ShadowPerformanceResponse['benchmarks'] })
+  }
+
+  if (authLoading || loadingAgent) return <div className="p-8 text-snow/60">Loading Shadow Lab…</div>
+
+  if (!user) {
+    return (
+      <div className="mx-auto max-w-xl p-8 text-center">
+        <h1 className="font-display text-4xl text-snow">Shadow Lab</h1>
+        <p className="mt-4 text-snow/65">Sign in from the home page to create and track your own paper-trading agent.</p>
+      </div>
+    )
+  }
+
+  if (agent) {
+    return (
+      <div className="mx-auto max-w-5xl space-y-7 p-8">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-mint">Active paper agent</p>
+            <h1 className="mt-2 font-display text-4xl text-snow">Your Shadow Agent</h1>
+            <p className="mt-2 max-w-2xl text-snow/60">{agent.symbol} · ends {new Date(agent.end_time).toLocaleString()} · updates after each market-signal cycle.</p>
+          </div>
+          <span className="rounded-full border border-mint/40 bg-mint/10 px-4 py-2 font-mono text-sm text-mint">PAPER ONLY</span>
+        </div>
+        <div className="rounded-2xl border border-snow/10 bg-[#111412] p-6">
+          <p className="text-xs uppercase tracking-widest text-snow/40">Your instruction</p>
+          <p className="mt-3 whitespace-pre-wrap leading-relaxed text-snow/85">{agent.behavior_prompt}</p>
+          <p className="mt-4 text-sm text-snow/50">Safety and evidence checks still apply. This agent never sends brokerage orders.</p>
+        </div>
+        <section>
+          <div className="mb-3 flex items-center justify-between"><h2 className="font-display text-2xl text-snow">Performance comparison</h2><button onClick={() => void refresh()} className="text-sm text-snow/55 hover:text-snow">Refresh</button></div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <PortfolioCard label="Your Shadow" value={performance?.agent.performance ?? agent.performance} accent="text-mint" />
+            <PortfolioCard label="Disciplined agent" value={performance?.benchmarks.disciplined} />
+            <PortfolioCard label="Undisciplined twin" value={performance?.benchmarks.undisciplined} accent="text-amber" />
+          </div>
+        </section>
+        {message && <p className="text-sm text-amber">{message}</p>}
+      </div>
+    )
+  }
 
   return (
-    <div className={`flex items-center gap-4 transition-opacity duration-500 ${visible ? 'opacity-100' : 'opacity-30'}`}>
-      <div className={`w-3 h-3 rounded-full ${visible ? 'bg-mint' : 'bg-snow/20'}`} />
-      <p className="text-lg text-snow/80 font-medium">{label}</p>
+    <div className="mx-auto max-w-3xl space-y-7 p-8">
+      <div><p className="text-xs uppercase tracking-[0.18em] text-mint">Custom paper agent</p><h1 className="mt-2 font-display text-4xl text-snow">Create your Shadow Agent</h1><p className="mt-3 max-w-2xl text-snow/65">Describe the action and its trigger. We check that the instruction is clear and safe—not whether it will be profitable. You can run one agent for 1–30 days.</p></div>
+      <div className="space-y-5 rounded-2xl border border-snow/10 bg-[#111412] p-7">
+        <label className="block text-sm text-snow/70">Symbol<input value={symbol} onChange={(event) => setSymbol(event.target.value.toUpperCase())} maxLength={32} placeholder="Enter the market symbol" className="mt-2 w-full rounded-lg border border-snow/10 bg-[#060807] px-4 py-3 font-mono text-snow outline-none focus:border-mint/50" /></label>
+        <label className="block text-sm text-snow/70">Trading behaviour<textarea value={idea} onChange={(event) => setIdea(event.target.value)} maxLength={4000} rows={6} placeholder="Describe an action and the condition that should trigger it." className="mt-2 w-full resize-none rounded-lg border border-snow/10 bg-[#060807] px-4 py-3 text-snow outline-none focus:border-mint/50" /></label>
+        <label className="block text-sm text-snow/70">Duration: <span className="font-mono text-mint">{durationDays} days</span><input type="range" min="1" max="30" value={durationDays} onChange={(event) => setDurationDays(Number(event.target.value))} className="mt-3 block w-full" /></label>
+        {message && <p className="rounded-lg border border-amber/30 bg-amber/10 p-3 text-sm text-amber">{message}</p>}
+        <button onClick={() => void submit()} disabled={creating || !symbol.trim() || !idea.trim()} className="w-full rounded-lg bg-snow px-6 py-4 text-sm font-bold uppercase tracking-wide text-charcoal disabled:cursor-not-allowed disabled:opacity-50">{creating ? 'Checking your instruction…' : 'Start paper agent'}</button>
+      </div>
     </div>
   )
 }

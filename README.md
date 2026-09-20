@@ -80,7 +80,7 @@ setup, budget controls, and the build/synth/deploy commands.
 ## Features
 
 - **India Replay Mode**: Scrub through historical NIFTY 50 scenarios and watch the twin agents diverge.
-- **Shadow Mode**: Challenge the agent via the `/shadow` API. Submit a trade idea and receive a deterministic verdict from the Layer 1 and 2 gates — without an LLM call.
+- **Shadow Mode**: A signed-in user can create one custom, 1–30 day **paper-only** agent through `/shadow`. Bedrock safety filtering and instruction-sufficiency validation run before creation; its bounded paper portfolio is compared with the disciplined and undisciplined agents.
 - **Full Auditability**: Every decision, blocked or executed, includes a citations array mapping to S3 evidence and the exact guardrail that evaluated it.
 
 ---

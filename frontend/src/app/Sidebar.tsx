@@ -97,11 +97,11 @@ export function Sidebar() {
       {/* System Status */}
       <div className="p-6 border-t border-white/10 bg-black/20">
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-2 h-2 rounded-full bg-mint animate-pulse" />
-          <span className="text-xs text-mint font-medium">SYSTEM OPERATIONAL</span>
+          <div className="w-2 h-2 rounded-full bg-amber" />
+          <span className="text-xs text-amber font-medium">DATA STATUS IN HEADER</span>
         </div>
         <p className="text-[10px] text-snow/40 uppercase tracking-wider">
-          SIMULATION ONLY
+          PAPER MODE · NO BROKER ORDERS
         </p>
       </div>
     </aside>

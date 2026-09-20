@@ -2,6 +2,7 @@ import unittest
 import json
 import sys
 import os
+import uuid
 
 # Add backend and lambdas to path for test imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
@@ -69,7 +70,11 @@ class TestNummussEngine(unittest.TestCase):
         self.assertEqual(res_pass, "passed")
 
     def test_fetch_signal_handler(self):
-        res = fetch_handler({}, None)
+        res = fetch_handler({"signals": [{
+            "symbol": "TEST",
+            "type": "price",
+            "content": "TEST price 100.00 from the test provider.",
+        }]}, None)
         self.assertEqual(res["statusCode"], 200)
         body = json.loads(res["body"])
         self.assertIn("signals", body)
@@ -80,30 +85,55 @@ class TestNummussEngine(unittest.TestCase):
         self.assertEqual(res["statusCode"], 200)
         body = json.loads(res["body"])
         self.assertIn("decisions", body)
-        self.assertEqual(len(body["decisions"]), 2)
+        self.assertEqual(body["decisions"], [])
 
     def test_api_handler_shadow_endpoint(self):
-        payload = json.dumps({"symbol": "NIFTY50", "idea": "I lost twice today. I will double my size to recover."})
+        user_id = f"test-user-{uuid.uuid4().hex}"
+        payload = json.dumps({
+            "user_id": user_id,
+            "symbol": "NIFTY50",
+            "idea": "Buy when RSI falls below 30, then sell when RSI rises above 65.",
+            "duration_days": 7,
+        })
         event = {"httpMethod": "POST", "path": "/shadow", "body": payload}
         res = api_handler(event, None)
-        self.assertEqual(res["statusCode"], 200)
+        self.assertEqual(res["statusCode"], 201)
         body = json.loads(res["body"])
-        self.assertEqual(body["verdict"], "blocked")
-        self.assertEqual(body["reason_label"], "revenge trading")
+        agent = body["agent"]
+        self.assertEqual(agent["status"], "active")
+        self.assertEqual(agent["user_id"], user_id)
+        self.assertEqual(agent["duration_days"], 7)
+
+        # The API owns the one-active-agent rule; a repeated request cannot
+        # create a second active custom agent for the same user.
+        duplicate = api_handler(event, None)
+        self.assertEqual(duplicate["statusCode"], 409)
+
+        active = api_handler({
+            "httpMethod": "GET", "path": "/shadow/active",
+            "queryStringParameters": {"user_id": user_id},
+        }, None)
+        self.assertEqual(active["statusCode"], 200)
+        self.assertEqual(json.loads(active["body"])["agent"]["agent_id"], agent["agent_id"])
+
+        performance = api_handler({
+            "httpMethod": "GET", "path": f"/shadow/{agent['agent_id']}/performance",
+            "pathParameters": {"agent_id": agent["agent_id"]},
+            "queryStringParameters": {"user_id": user_id},
+        }, None)
+        self.assertEqual(performance["statusCode"], 200)
 
     def test_api_handler_feed_endpoint(self):
         event = {"httpMethod": "GET", "path": "/feed", "queryStringParameters": {"mode": "india_replay", "agent": "disciplined"}}
         res = api_handler(event, None)
         self.assertEqual(res["statusCode"], 200)
         body = json.loads(res["body"])
-        self.assertIn("decisions", body)
+        self.assertEqual(body["decisions"], [])
 
     def test_api_handler_counterfactual_endpoint(self):
         event = {"httpMethod": "GET", "path": "/counterfactual"}
         res = api_handler(event, None)
-        self.assertEqual(res["statusCode"], 200)
-        body = json.loads(res["body"])
-        self.assertIn("capital_difference_inr", body)
+        self.assertEqual(res["statusCode"], 501)
 
 if __name__ == "__main__":
     unittest.main()

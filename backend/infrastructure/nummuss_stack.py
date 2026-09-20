@@ -5,6 +5,7 @@ from aws_cdk import (
     CfnOutput,
     aws_cloudfront as cloudfront,
     aws_cloudfront_origins as origins,
+    aws_bedrock as bedrock,
     aws_dynamodb as dynamodb,
     aws_s3 as s3,
     aws_s3_deployment as s3deploy,
@@ -53,6 +54,11 @@ class BackendStack(Stack):
             partition_key=dynamodb.Attribute(name="mode", type=dynamodb.AttributeType.STRING),
             sort_key=dynamodb.Attribute(name="timestamp", type=dynamodb.AttributeType.STRING)
         )
+        decisions_table.add_global_secondary_index(
+            index_name="AgentTimestampIndex",
+            partition_key=dynamodb.Attribute(name="agent_role", type=dynamodb.AttributeType.STRING),
+            sort_key=dynamodb.Attribute(name="timestamp", type=dynamodb.AttributeType.STRING)
+        )
 
         # Shadow Query Table
         shadow_table = dynamodb.Table(
@@ -66,6 +72,7 @@ class BackendStack(Stack):
             partition_key=dynamodb.Attribute(name="status", type=dynamodb.AttributeType.STRING),
             sort_key=dynamodb.Attribute(name="end_time", type=dynamodb.AttributeType.STRING)
         )
+        shadow_table.add_time_to_live_attribute("expires_at")
 
         # Evidence Bucket
         evidence_bucket = s3.Bucket(
@@ -83,6 +90,27 @@ class BackendStack(Stack):
             encryption=sqs.QueueEncryption.SQS_MANAGED,
             retention_period=Duration.days(14),
             removal_policy=data_removal_policy
+        )
+
+        # The guardrail is deliberately content-safety only. Whether a trading
+        # instruction is profitable is never a guardrail decision; the API
+        # separately checks that it contains an action and a trigger.
+        content_guardrail = bedrock.CfnGuardrail(
+            self, "ShadowStrategyGuardrail",
+            name=f"nummuss-{stage}-shadow-strategy",
+            description="Content safety for user-supplied paper trading instructions.",
+            blocked_input_messaging="This strategy cannot be accepted under the content safety policy.",
+            blocked_outputs_messaging="This response was blocked by the content safety policy.",
+            content_policy_config=bedrock.CfnGuardrail.ContentPolicyConfigProperty(
+                filters_config=[
+                    bedrock.CfnGuardrail.ContentFilterConfigProperty(
+                        type=filter_type,
+                        input_strength="HIGH",
+                        output_strength="HIGH",
+                    )
+                    for filter_type in ("HATE", "INSULTS", "SEXUAL", "VIOLENCE", "MISCONDUCT", "PROMPT_ATTACK")
+                ]
+            ),
         )
 
         # ==========================================
@@ -105,7 +133,7 @@ class BackendStack(Stack):
                 "DDB_SIGNALS_TABLE": signals_table.table_name,
                 "S3_EVIDENCE_BUCKET": evidence_bucket.bucket_name,
                 "ALPHA_VANTAGE_API_KEY": os.environ.get("ALPHA_VANTAGE_API_KEY", ""),
-                "ALPHA_VANTAGE_SYMBOLS": os.environ.get("ALPHA_VANTAGE_SYMBOLS", "NIFTY50,RELIANCE,TCS"),
+                "ALPHA_VANTAGE_SYMBOLS": os.environ.get("ALPHA_VANTAGE_SYMBOLS", ""),
                 "PYTHONPATH": "/var/runtime:/opt"
             },
             layers=[common_layer],
@@ -129,9 +157,10 @@ class BackendStack(Stack):
                 "DDB_SIGNALS_TABLE": signals_table.table_name,
                 "DDB_SHADOW_TABLE": shadow_table.table_name,
                 "S3_EVIDENCE_BUCKET": evidence_bucket.bucket_name,
-                "AWS_BEARER_TOKEN_BEDROCK": os.environ.get("AWS_BEARER_TOKEN_BEDROCK", ""),
                 "BEDROCK_REGION": os.environ.get("BEDROCK_REGION", "eu-north-1"),
-                "BEDROCK_MODEL_ID": os.environ.get("BEDROCK_MODEL_ID", "anthropic.claude-3-5-sonnet-20241022-v2:0"),
+                "BEDROCK_MODEL_ID": os.environ.get("BEDROCK_MODEL_ID", "anthropic.claude-3-haiku-20240307-v1:0"),
+                "BEDROCK_GUARDRAIL_ID": content_guardrail.attr_guardrail_id,
+                "BEDROCK_GUARDRAIL_VERSION": "DRAFT",
                 "MEGABULL_API_KEY": os.environ.get("MEGABULL_API_KEY", ""),
                 "MEGABULL_BASE_URL": os.environ.get("MEGABULL_BASE_URL", "https://api.megabull.app/v1"),
                 "MEGABULL_ORDER_QTY": os.environ.get("MEGABULL_ORDER_QTY", "1"),
@@ -148,7 +177,11 @@ class BackendStack(Stack):
         decisions_table.grant_write_data(reason_decide_lambda)
         signals_table.grant_read_data(reason_decide_lambda)
         evidence_bucket.grant_read(reason_decide_lambda)
-        shadow_table.grant_read_data(reason_decide_lambda)
+        shadow_table.grant_read_write_data(reason_decide_lambda)
+        reason_decide_lambda.add_to_role_policy(iam.PolicyStatement(
+            actions=["bedrock:InvokeModel", "bedrock:ApplyGuardrail"],
+            resources=["*"]
+        ))
 
         # Ingestion invokes reasoning only after it has persisted the latest signals.
         fetch_signal_lambda.add_environment("REASON_DECIDE_FUNCTION_NAME", reason_decide_lambda.function_name)
@@ -163,9 +196,10 @@ class BackendStack(Stack):
             environment={
                 "DDB_DECISIONS_TABLE": decisions_table.table_name,
                 "DDB_SHADOW_TABLE": shadow_table.table_name,
-                "AWS_BEARER_TOKEN_BEDROCK": os.environ.get("AWS_BEARER_TOKEN_BEDROCK", ""),
                 "BEDROCK_REGION": os.environ.get("BEDROCK_REGION", "eu-north-1"),
-                "BEDROCK_MODEL_ID": os.environ.get("BEDROCK_MODEL_ID", "anthropic.claude-3-5-sonnet-20241022-v2:0"),
+                "BEDROCK_MODEL_ID": os.environ.get("BEDROCK_MODEL_ID", "anthropic.claude-3-haiku-20240307-v1:0"),
+                "BEDROCK_GUARDRAIL_ID": content_guardrail.attr_guardrail_id,
+                "BEDROCK_GUARDRAIL_VERSION": "DRAFT",
                 "PYTHONPATH": "/var/runtime:/opt"
             },
             layers=[common_layer],
@@ -175,6 +209,10 @@ class BackendStack(Stack):
 
         decisions_table.grant_read_data(api_handler_lambda)
         shadow_table.grant_read_write_data(api_handler_lambda)
+        api_handler_lambda.add_to_role_policy(iam.PolicyStatement(
+            actions=["bedrock:InvokeModel", "bedrock:ApplyGuardrail"],
+            resources=["*"]
+        ))
 
         # ==========================================
         # 3. TRIGGERS: EVENTBRIDGE & API GATEWAY
@@ -225,6 +263,11 @@ class BackendStack(Stack):
 
         shadow = api.root.add_resource("shadow")
         shadow.add_method("POST", api_integration)
+        shadow_active = shadow.add_resource("active")
+        shadow_active.add_method("GET", api_integration)
+        shadow_agent = shadow.add_resource("{agent_id}")
+        shadow_performance = shadow_agent.add_resource("performance")
+        shadow_performance.add_method("GET", api_integration)
 
         # ==========================================
         # 4. FRONTEND: PRIVATE S3 + CLOUDFRONT

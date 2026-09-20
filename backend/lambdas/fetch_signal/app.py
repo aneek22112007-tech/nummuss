@@ -17,16 +17,14 @@ except ImportError:
 # Import shared engine helpers
 try:
     from common.schemas import MarketSignal
-    from common.fixtures import SEED_SIGNALS
 except ImportError:
     from lambdas.common.schemas import MarketSignal
-    from lambdas.common.fixtures import SEED_SIGNALS
 
 DDB_SIGNALS_TABLE = os.environ.get("DDB_SIGNALS_TABLE", "nummuss-signals")
 S3_EVIDENCE_BUCKET = os.environ.get("S3_EVIDENCE_BUCKET", "nummuss-evidence")
 REASON_DECIDE_FUNCTION_NAME = os.environ.get("REASON_DECIDE_FUNCTION_NAME")
 ALPHA_VANTAGE_API_KEY = os.environ.get("ALPHA_VANTAGE_API_KEY", "")
-ALPHA_VANTAGE_SYMBOLS = os.environ.get("ALPHA_VANTAGE_SYMBOLS", "NIFTY50,RELIANCE,TCS")
+ALPHA_VANTAGE_SYMBOLS = os.environ.get("ALPHA_VANTAGE_SYMBOLS", "")
 
 # ------------------------------------------------
 # Alpha Vantage helpers (stdlib urllib, no deps)
@@ -98,7 +96,6 @@ def _fetch_alpha_vantage_news(symbol: str) -> list[dict]:
 def _build_live_signals(symbols: list[str]) -> list[dict]:
     """
     Fetch live price and news signals for each symbol from Alpha Vantage.
-    Falls back gracefully if any individual call fails.
     """
     raw_signals = []
     for symbol in symbols:
@@ -107,10 +104,6 @@ def _build_live_signals(symbols: list[str]) -> list[dict]:
             raw_signals.append(price_sig)
         news_sigs = _fetch_alpha_vantage_news(symbol)
         raw_signals.extend(news_sigs)
-
-    if not raw_signals:
-        print("Alpha Vantage returned no data. Falling back to seed fixtures.")
-        return list(SEED_SIGNALS)
 
     return raw_signals
 
@@ -129,8 +122,7 @@ def hash_payload(content: str) -> str:
 def handler(event, context):
     """
     fetch_signal Lambda Handler:
-    1. Fetches live price + news signals from Alpha Vantage (if API key is set),
-       or falls back to static seed fixtures.
+    1. Fetches live price + news signals from Alpha Vantage.
     2. Normalizes, hashes, and stores each signal in DynamoDB & S3.
     3. Invokes reason_decide Lambda asynchronously.
     """
@@ -142,13 +134,18 @@ def handler(event, context):
         # Explicit signals injected via event (e.g. from a test)
         raw_inputs = event["signals"]
         print(f"Using {len(raw_inputs)} signals from event payload.")
-    elif ALPHA_VANTAGE_API_KEY:
+    elif ALPHA_VANTAGE_API_KEY and ALPHA_VANTAGE_SYMBOLS:
         symbols = [s.strip() for s in ALPHA_VANTAGE_SYMBOLS.split(",") if s.strip()]
         print(f"Fetching live signals from Alpha Vantage for: {symbols}")
         raw_inputs = _build_live_signals(symbols)
     else:
-        print("No ALPHA_VANTAGE_API_KEY set. Using seed fixtures.")
-        raw_inputs = list(SEED_SIGNALS)
+        raise RuntimeError("Live market data is not configured. Set ALPHA_VANTAGE_API_KEY and ALPHA_VANTAGE_SYMBOLS.")
+
+    if not raw_inputs:
+        return {
+            "statusCode": 503,
+            "body": json.dumps({"error": "No live market signals were returned by the configured provider.", "signals": []})
+        }
 
     processed_signals = []
 
@@ -165,7 +162,9 @@ def handler(event, context):
             raise RuntimeError(f"Unable to initialize AWS clients: {e}") from e
 
     for item in raw_inputs:
-        symbol = item.get("symbol", "NIFTY50").upper()
+        symbol = str(item.get("symbol", "")).upper()
+        if not symbol:
+            raise ValueError("Every market signal must include a symbol.")
         sig_type = item.get("type", "news")
         raw_content = item.get("content", "")
 

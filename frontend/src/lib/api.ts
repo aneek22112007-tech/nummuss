@@ -60,17 +60,39 @@ export type ReplayScenarioResponse = {
   exposure_avoided_inr: number
 }
 
-export type ShadowResponse = {
-  query_id: string
-  timestamp: string
-  submitted_by: string
-  symbol: string
-  idea: string
-  verdict: 'blocked' | 'allowed'
-  guardrail_layer: string | null
-  reason_label: string
-  explanation: string
+export type PaperPerformance = {
+  starting_capital_inr: number
+  cash_inr: number
+  units: number
+  current_value_inr: number
+  pnl_inr: number
+  trades_taken: number
+  last_action: 'buy' | 'sell' | 'hold'
+  last_price: number | null
+  last_updated: string | null
 }
+
+export type ShadowAgent = {
+  agent_id: string
+  user_id: string
+  symbol: string
+  behavior_prompt: string
+  start_time: string
+  end_time: string
+  status: 'active' | 'expired' | 'rejected'
+  reason: string
+  duration_days: number
+  performance: Partial<PaperPerformance>
+}
+
+export type ShadowCreateResponse = { agent: ShadowAgent }
+export type ShadowActiveResponse = { agent: ShadowAgent | null }
+export type ShadowPerformanceResponse = {
+  agent: ShadowAgent
+  benchmarks: Record<'disciplined' | 'undisciplined', Partial<PaperPerformance>>
+}
+
+export type ShadowResponse = ShadowCreateResponse
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`)
@@ -84,16 +106,28 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`POST ${path} failed: ${res.status}`)
+  if (!res.ok) {
+    const payload = await res.json().catch(() => null) as { error?: string; reason?: string } | null
+    throw new Error(payload?.reason || payload?.error || `POST ${path} failed: ${res.status}`)
+  }
   return res.json() as Promise<T>
 }
 
 export const api = {
-  feed: (mode = 'india_replay', agent = 'disciplined') =>
+  feed: (mode = 'live_paper', agent = 'disciplined') =>
     get<{ decisions: FeedDecision[] }>(`/feed?mode=${mode}&agent=${agent}`),
   decision: (id: string) => get<FeedDecision>(`/decision/${id}`),
   twin: () => get<TwinResponse>('/twin'),
   counterfactual: () => get<CounterfactualResponse>('/counterfactual'),
   replayScenario: (id: string) => get<ReplayScenarioResponse>(`/replay/scenario/${id}`),
-  shadow: (symbol: string, idea: string) => post<ShadowResponse>('/shadow', { symbol, idea }),
+  shadow: (input: { userId: string; symbol: string; idea: string; durationDays: number }) =>
+    post<ShadowCreateResponse>('/shadow', {
+      user_id: input.userId,
+      symbol: input.symbol,
+      idea: input.idea,
+      duration_days: input.durationDays,
+    }),
+  activeShadow: (userId: string) => get<ShadowActiveResponse>(`/shadow/active?user_id=${encodeURIComponent(userId)}`),
+  shadowPerformance: (agentId: string, userId: string) =>
+    get<ShadowPerformanceResponse>(`/shadow/${encodeURIComponent(agentId)}/performance?user_id=${encodeURIComponent(userId)}`),
 }

@@ -14,7 +14,7 @@ export default function Decisions() {
   const [actionFilter, setActionFilter] = useState<FilterAction>('all')
   const [agentFilter, setAgentFilter] = useState<FilterAgent>('disciplined')
 
-  const { data: decisions, loading } = useFeed('india_replay', agentFilter)
+  const { data: decisions, loading } = useFeed('live_paper', agentFilter)
 
   const filteredDecisions = decisions.filter((d) => {
     if (actionFilter === 'blocked') return d.guardrail_result === 'blocked'

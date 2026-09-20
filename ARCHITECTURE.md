@@ -18,7 +18,7 @@ Nummuss explores behavioral guardrails in AI trading by running distinct agents 
    - A fully customizable 3rd trading agent instantiated by the user via the `/shadow` API.
    - Users provide a custom trading behavior prompt (e.g., "always buy when RSI < 30", "double my size if I lose"). 
    - A Bedrock guardrail checks if the prompt is *sufficient* (i.e. contains clear instructions for an agent) without judging if the strategy is profitable. 
-   - If valid, this Shadow Agent is spun up to trade live for a chosen duration (1 to 30 days). A user is limited to 1 active shadow agent at a time.
+   - If valid, this Shadow Agent runs a bounded **paper** portfolio for a chosen duration (1 to 30 days). It never sends a brokerage order. A user is limited to 1 active shadow agent at a time.
    - The user can track its performance in real-time against the predefined agents.
 
 ## 2. System Flow
@@ -80,15 +80,15 @@ flowchart TD
    - It iterates through all active Shadow Agents, performing a *custom* LLM inference for each by injecting their unique `behavior_prompt`.
    - All agents' decisions are pushed through Layer 1 & 2 guardrails.
    - Decisions are saved to `nummuss-decisions` in DynamoDB.
-4. **Data Retrieval**: The React frontend uses the `api_handler` to fetch the decision feeds (`GET /feed?agent=shadow_<user_agent_id>`). 
+4. **Data Retrieval**: The React frontend retrieves the owned agent and its comparison ledger through `GET /shadow/active` and `GET /shadow/{agent_id}/performance`.
 
 ## 3. The Shadow Function Detail
 
 Previously a simple testing endpoint, the Shadow Function is now a fully automated lifecycle:
 - **Initialization (`POST /shadow`)**: Accepts a `user_id`, a custom `idea`, and a `duration_days` (1-30). 
 - **LLM Guardrail**: The `api_handler` calls Bedrock to check *sufficiency*. It asks: "Does this text contain actionable trading instructions?" It explicitly ignores whether the instructions are rational (e.g., allowing a user to test "go all in on a loss").
-- **Persistence**: Saved as an `active` agent in the `nummuss-shadow` DynamoDB table using a Global Secondary Index (`StatusIndex`).
-- **Execution**: Automatically picked up by the `reason_decide` cron job until the `end_time` expires.
+- **Persistence**: The agent and a user-specific expiry lock are created atomically in the `nummuss-shadow` DynamoDB table. This makes the one-active-agent limit race-safe.
+- **Execution**: Automatically picked up by the `reason_decide` cron job until the `end_time` expires. Decisions update a 5%-maximum-allocation paper portfolio stored beside the agent, plus matching portfolios for the two predefined agents.
 
 ## 4. Shared Library (`lambdas/common`)
 - Deployed as a Lambda Layer (`CommonLayer`) mapped to `/opt` in the Lambda execution environment.
@@ -96,9 +96,9 @@ Previously a simple testing endpoint, the Shadow Function is now a fully automat
 
 ## 5. Deployment Details & Minor Gotchas
 
-1. **API Keys in Environment Variables**:
-   - `AWS_BEARER_TOKEN_BEDROCK`: Ensure the *entire* token is copied into the `.env` file before deployment.
-   - Ensure the Bedrock Model ID matches the token's region and capabilities (default is `anthropic.claude-3-5-sonnet-20241022-v2:0` in `eu-north-1`).
+1. **Bedrock permissions**:
+   - Lambda uses its IAM execution role for Bedrock; do not place a long-lived Bedrock token in an environment variable.
+   - Ensure the chosen model is enabled in the deployment region. The development default is Claude 3 Haiku to keep experimentation costs bounded.
 2. **DynamoDB Global Secondary Index (GSI)**:
    - The `nummuss-shadow` table relies heavily on a GSI called `StatusIndex` on the `status` attribute. If deploying to an existing stack, CDK will handle index creation automatically, but be aware of index creation times on large tables.
 3. **Lambda Timeout & Memory**:

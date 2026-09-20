@@ -9,7 +9,7 @@ import gsap from 'gsap'
 
 export default function Overview() {
   const { data: twinData, loading: twinLoading } = useTwin()
-  const { data: decisions } = useFeed('india_replay', 'disciplined')
+  const { data: decisions } = useFeed('live_paper', 'disciplined')
   const { data: counterfactual } = useCounterfactual()
   const chartRef = useRef<SVGSVGElement>(null)
 

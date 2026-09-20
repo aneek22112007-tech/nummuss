@@ -21,18 +21,20 @@ try:
     from common.schemas import DecisionRecord, TradeResult, SignalSource, MarketSignal
     from common.layer1 import validate_evidence
     from common.layer2 import evaluate_behavioral_guardrails
-    from common.fixtures import SEED_SIGNALS
+    from common.paper_portfolio import apply_paper_decision, default_performance, latest_price
 except ImportError:
     from lambdas.common.schemas import DecisionRecord, TradeResult, SignalSource, MarketSignal
     from lambdas.common.layer1 import validate_evidence
     from lambdas.common.layer2 import evaluate_behavioral_guardrails
-    from lambdas.common.fixtures import SEED_SIGNALS
+    from lambdas.common.paper_portfolio import apply_paper_decision, default_performance, latest_price
 
 DDB_DECISIONS_TABLE = os.environ.get("DDB_DECISIONS_TABLE", "nummuss-decisions")
 DDB_SIGNALS_TABLE = os.environ.get("DDB_SIGNALS_TABLE", "nummuss-signals")
-AWS_BEARER_TOKEN_BEDROCK = os.environ.get("AWS_BEARER_TOKEN_BEDROCK", "")
+DDB_SHADOW_TABLE = os.environ.get("DDB_SHADOW_TABLE", "nummuss-shadow")
 BEDROCK_REGION = os.environ.get("BEDROCK_REGION", "eu-north-1")
-BEDROCK_MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "anthropic.claude-3-5-sonnet-20241022-v2:0")
+BEDROCK_MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "anthropic.claude-3-haiku-20240307-v1:0")
+BEDROCK_GUARDRAIL_ID = os.environ.get("BEDROCK_GUARDRAIL_ID", "")
+BEDROCK_GUARDRAIL_VERSION = os.environ.get("BEDROCK_GUARDRAIL_VERSION", "DRAFT")
 MEGABULL_API_KEY = os.environ.get("MEGABULL_API_KEY", "")
 MEGABULL_BASE_URL = os.environ.get("MEGABULL_BASE_URL", "https://api.megabull.app/v1")
 MEGABULL_ORDER_QTY = int(os.environ.get("MEGABULL_ORDER_QTY", "1"))
@@ -40,7 +42,6 @@ MEGABULL_ORDER_QTY = int(os.environ.get("MEGABULL_ORDER_QTY", "1"))
 # --- LLM chain: Amazon Bedrock → deterministic hold ---
 _LLM_FALLBACK = {
     "action": "hold",
-    "symbol": "NIFTY50",
     "confidence_raw": 0,
     "confidence_tier": "low",
     "cited_symbols": [],
@@ -100,15 +101,16 @@ def _parse_json_from_text(text: str) -> dict | None:
 
 def _call_bedrock(prompt_text: str) -> dict | None:
     """
-    Amazon Bedrock Converse API (via HTTP with Bearer Token).
-    Returns parsed dict or None on failure.
+    Amazon Bedrock Converse API authenticated by the Lambda execution role.
+    The legacy bearer-token variable is deliberately not used for production
+    inference: no long-lived model credential belongs in Lambda environment.
     """
-    if not AWS_BEARER_TOKEN_BEDROCK:
-        print("Bedrock token missing.")
+    if not boto3:
+        print("boto3 unavailable; Bedrock call skipped.")
         return None
     try:
-        url = f"https://bedrock-runtime.{BEDROCK_REGION}.amazonaws.com/model/{BEDROCK_MODEL_ID}/converse"
-        payload = {
+        runtime = boto3.client("bedrock-runtime", region_name=BEDROCK_REGION)
+        request = {
             "messages": [
                 {
                     "role": "user",
@@ -120,13 +122,14 @@ def _call_bedrock(prompt_text: str) -> dict | None:
                 "temperature": 0.2
             }
         }
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {AWS_BEARER_TOKEN_BEDROCK}",
-        }
-        resp = _http_post(url, headers, payload)
-        
-        # Bedrock Converse API response format
+        if BEDROCK_GUARDRAIL_ID:
+            request["guardrailConfig"] = {
+                "guardrailIdentifier": BEDROCK_GUARDRAIL_ID,
+                "guardrailVersion": BEDROCK_GUARDRAIL_VERSION,
+            }
+        resp = runtime.converse(modelId=BEDROCK_MODEL_ID, **request)
+        if resp.get("stopReason") == "guardrail_intervened":
+            return {"guardrail_intervened": True}
         text = resp["output"]["message"]["content"][0]["text"]
         result = _parse_json_from_text(text)
         if result:
@@ -152,7 +155,7 @@ def call_llm(prompt_text: str) -> dict:
     return _LLM_FALLBACK
 
 def query_recent_signals() -> list:
-    """Fetch recent signals from DynamoDB or return seed signals fallback."""
+    """Fetch recent persisted live signals. Synthetic signals are never used."""
     if boto3 and (os.environ.get("AWS_EXECUTION_ENV") or os.environ.get("AWS_DEFAULT_REGION")):
         try:
             dynamodb = boto3.resource("dynamodb")
@@ -164,7 +167,47 @@ def query_recent_signals() -> list:
         except Exception as e:
             print(f"Error querying DynamoDB signals: {e}")
     
-    return [MarketSignal(**sig) for sig in SEED_SIGNALS]
+    return []
+
+
+def _update_paper_performance(
+    shadow_table,
+    *,
+    role: str,
+    action: str,
+    price: float | None,
+    timestamp: str,
+    shadow_agent: dict | None = None,
+) -> None:
+    """Persist bounded paper performance for a predefined or custom agent."""
+    if not shadow_table:
+        return
+    try:
+        if shadow_agent:
+            key = shadow_agent["query_id"]
+            current = shadow_agent.get("performance") or default_performance()
+            performance = apply_paper_decision(current, action=action, price=price, timestamp=timestamp)
+            shadow_table.update_item(
+                Key={"query_id": key},
+                UpdateExpression="SET performance = :performance, last_decision_at = :timestamp",
+                ExpressionAttributeValues={":performance": performance, ":timestamp": timestamp},
+            )
+            return
+
+        key = f"portfolio#{role}"
+        item = shadow_table.get_item(Key={"query_id": key}).get("Item")
+        current = (item or {}).get("performance") or default_performance()
+        performance = apply_paper_decision(current, action=action, price=price, timestamp=timestamp)
+        shadow_table.put_item(Item={
+            "query_id": key,
+            "entity_type": "benchmark_portfolio",
+            "agent_role": role,
+            "performance": performance,
+            "last_decision_at": timestamp,
+        })
+    except Exception as exc:
+        # A reporting failure must never prevent the primary decision record.
+        print(f"Paper performance update failed for {role}: {exc}")
 
 
 
@@ -180,6 +223,14 @@ def handler(event, context):
     print("Executing reason_decide handler...")
     now_iso = datetime.now(timezone.utc).isoformat()
     signals = query_recent_signals()
+    if not signals:
+        return {
+            "statusCode": 200,
+            "body": json.dumps({
+                "message": "No fresh live market signals are available; no decisions were created.",
+                "decisions": [],
+            }),
+        }
 
     # Construct reasoning prompt
     signal_summary = "\n".join([f"- [{sig.signal_id}] {sig.symbol}: {sig.content}" for sig in signals])
@@ -209,14 +260,23 @@ Output only a valid JSON object with keys:
     active_shadows = []
     if dynamodb:
         try:
-            shadow_table = dynamodb.Table(os.environ.get("DDB_SHADOW_TABLE", "nummuss-shadow"))
+            shadow_table = dynamodb.Table(DDB_SHADOW_TABLE)
             res = shadow_table.query(
                 IndexName="StatusIndex",
                 KeyConditionExpression=Key("status").eq("active")
             )
             for item in res.get("Items", []):
+                if item.get("entity_type") != "shadow_agent":
+                    continue
                 if item.get("end_time", "") > now_iso:
                     active_shadows.append(item)
+                else:
+                    shadow_table.update_item(
+                        Key={"query_id": item["query_id"]},
+                        UpdateExpression="SET #status = :expired",
+                        ExpressionAttributeNames={"#status": "status"},
+                        ExpressionAttributeValues={":expired": "expired"},
+                    )
         except Exception as e:
             print(f"Error fetching shadow agents: {e}")
 
@@ -229,7 +289,8 @@ Output only a valid JSON object with keys:
         agents.append({
             "role": f"shadow_{s.get('agent_id', s.get('query_id', 'unknown'))}",
             "losses": 0,
-            "behavior": s.get("behavior_prompt")
+            "behavior": s.get("behavior_prompt"),
+            "shadow_agent": s,
         })
 
     records = []
@@ -237,6 +298,7 @@ Output only a valid JSON object with keys:
     for agent in agents:
         role = agent["role"]
         behavior = agent["behavior"]
+        shadow_agent = agent.get("shadow_agent")
         consecutive_losses = agent["losses"]
 
         agent_prompt = prompt
@@ -245,7 +307,7 @@ Output only a valid JSON object with keys:
 
         if is_malicious_fixture:
             action = "hold"
-            symbol = "NIFTY50"
+            symbol = signals[0].symbol
             confidence_raw = 0
             confidence_tier = "low"
             cited_symbols = []
@@ -262,7 +324,7 @@ Output only a valid JSON object with keys:
             llm_intervened = llm_decision.get("guardrail_intervened", False)
             if llm_intervened:
                 action = "hold"
-                symbol = "NIFTY50"
+                symbol = signals[0].symbol
                 confidence_raw = 0
                 confidence_tier = "low"
                 cited_symbols = []
@@ -271,7 +333,7 @@ Output only a valid JSON object with keys:
                 evidence_quality = "weak"
             else:
                 action = llm_decision.get("action", "hold")
-                symbol = llm_decision.get("symbol", "NIFTY50")
+                symbol = llm_decision.get("symbol", signals[0].symbol)
                 confidence_raw = int(llm_decision.get("confidence_raw", 0))
                 confidence_tier = llm_decision.get("confidence_tier", "low")
                 cited_symbols = llm_decision.get("cited_symbols", [])
@@ -351,6 +413,18 @@ Output only a valid JSON object with keys:
                 table.put_item(Item=rec_dict)
             except Exception as err:
                 print(f"DynamoDB PutItem decision error: {err}")
+
+            # All three agents are compared on the same observed price. This
+            # remains a bounded paper ledger; no custom strategy can place a
+            # brokerage order.
+            _update_paper_performance(
+                shadow_table,
+                role=role if not shadow_agent else f"shadow_{shadow_agent['agent_id']}",
+                action=action if is_allowed else "hold",
+                price=latest_price(signals, symbol),
+                timestamp=now_iso,
+                shadow_agent=shadow_agent,
+            )
 
     return {
         "statusCode": 200,

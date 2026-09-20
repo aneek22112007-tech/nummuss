@@ -7,7 +7,9 @@ except ImportError:
     HAS_PYDANTIC = False
 
 MarketMode = Literal['live_paper', 'india_replay']
-AgentRole = Literal['disciplined', 'undisciplined']
+# Shadow agents use a generated role (for example, ``shadow_sha-...``), so this
+# cannot be a closed two-value enum.
+AgentRole = str
 Action = Literal['buy', 'sell', 'hold']
 ConfidenceTier = Literal['low', 'medium', 'high']
 EvidenceQuality = Literal['weak', 'medium', 'strong']
@@ -74,13 +76,17 @@ if HAS_PYDANTIC:
         explanation: str
 
     class ShadowAgent(BaseModel):
+        query_id: str
         agent_id: str
         user_id: str
+        symbol: str
         behavior_prompt: str
         start_time: str
         end_time: str
         status: Literal['active', 'expired', 'rejected']
         reason: str = ""
+        duration_days: int = Field(ge=1, le=30)
+        performance: Dict[str, Any] = Field(default_factory=dict)
 
     class MarketSignal(BaseModel):
         signal_id: str
@@ -149,13 +155,17 @@ else:
 
     @dataclass
     class ShadowAgent(BaseSchema):
+        query_id: str
         agent_id: str
         user_id: str
+        symbol: str
         behavior_prompt: str
         start_time: str
         end_time: str
         status: Literal['active', 'expired', 'rejected']
         reason: str = ""
+        duration_days: int = 7
+        performance: Dict[str, Any] = field(default_factory=dict)
 
     @dataclass
     class MarketSignal(BaseSchema):

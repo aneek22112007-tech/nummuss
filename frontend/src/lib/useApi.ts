@@ -4,9 +4,9 @@
  */
 
 import { useEffect, useState } from 'react'
-import { api, FeedDecision, TwinResponse, CounterfactualResponse, ReplayScenarioResponse, ShadowResponse } from './api'
+import { api, FeedDecision, TwinResponse, CounterfactualResponse, ReplayScenarioResponse, ShadowCreateResponse } from './api'
 
-export function useFeed(mode = 'india_replay', agent = 'disciplined') {
+export function useFeed(mode = 'live_paper', agent = 'disciplined') {
   const [data, setData] = useState<FeedDecision[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -48,7 +48,7 @@ export function useDecision(id: string) {
   return { data, loading, error }
 }
 
-export function useTwin(mode = 'india_replay', days = 14) {
+export function useTwin(mode = 'live_paper', days = 14) {
   const [data, setData] = useState<TwinResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -114,12 +114,12 @@ export function useShadow() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
-  const testIdea = async (symbol: string, idea: string): Promise<ShadowResponse | null> => {
+  const createAgent = async (userId: string, symbol: string, idea: string, durationDays: number): Promise<ShadowCreateResponse | null> => {
     setLoading(true)
     setError(null)
 
     try {
-      const result = await api.shadow(symbol, idea)
+      const result = await api.shadow({ userId, symbol, idea, durationDays })
       return result
     } catch (err) {
       setError(err as Error)
@@ -129,5 +129,5 @@ export function useShadow() {
     }
   }
 
-  return { testIdea, loading, error }
+  return { createAgent, loading, error }
 }

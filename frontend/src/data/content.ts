@@ -40,14 +40,6 @@ export type FailureMode = {
   metric: string
 }
 
-export type ReplayScenario = {
-  tag: string
-  title: string
-  body: string
-  image: string
-  accent: boolean
-}
-
 export type NavItem = {
   num: string
   title: string
@@ -389,48 +381,9 @@ export const replay = {
   label: 'India Replay Mode',
   headingLines: ['Same NIFTY Evidence.', 'Two Outcomes.'],
   lead:
-    'Historical NIFTY 50 fixtures with timestamped market-event headlines, \u20b91,00,000 simulated starting capital, and three preselected scenarios. All fills simulated. No NSE order is ever sent — the UI says so, always.',
-  note: 'India Replay · simulated fills only · not live NSE trading',
+    'Historical replay will appear only after a verified historical data source is connected.',
+  note: 'No replay data is currently displayed.',
 }
-
-export const replayScenarios: ReplayScenario[] = [
-  {
-    tag: 'Scenario 01',
-    title: 'Expiry-Style Volatility',
-    body:
-      'Expiry-day whipsaw on NIFTY. The twin chases momentum into the spike; the disciplined agent waits for corroboration, then sizes normally.',
-    image:
-      'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=1100&auto=format&fit=crop',
-    accent: false,
-  },
-  {
-    tag: 'Scenario 02',
-    title: 'Loss-Streak Re-Entry',
-    body:
-      'Two consecutive losses. The twin doubles size to recover — revenge trading. The cooldown gate pauses the disciplined agent for 4 cycles.',
-    image:
-      'https://images.unsplash.com/photo-1621761191319-c6fb62004040?q=80&w=1100&auto=format&fit=crop',
-    accent: true,
-  },
-  {
-    tag: 'Scenario 03',
-    title: 'Dramatic News, Contradicted',
-    body:
-      'One explosive headline, one contradicting source. Tip chasing gets blocked by the evidence floor; the disciplined agent holds.',
-    image:
-      'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?q=80&w=1100&auto=format&fit=crop',
-    accent: false,
-  },
-  {
-    tag: 'The Panel',
-    title: 'Counterfactual Panel',
-    body:
-      'Trades · blocks · exposure avoided · drawdown · capital gap. Every number derived from the same replay inputs. Live paper, replay and test rows are always visually separated.',
-    image:
-      'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1100&auto=format&fit=crop',
-    accent: true,
-  },
-]
 
 /* ------------------------------------------------------------------ */
 /* Shadow mode                                                         */
@@ -439,16 +392,9 @@ export const shadow = {
   label: 'Shadow Mode',
   headingLines: ['Challenge', 'Nummuss'],
   lead:
-    'POST /shadow accepts a short trade idea and returns a deterministic verdict using the same Evidence Consistency Gate and behavioral engine. No LLM call — the verdict cannot hallucinate.',
+    'Signed-in users can create one time-bounded custom paper agent after safety and instruction-sufficiency validation.',
   note:
     'Rate-limited to 10 req/min/IP · input size-limited · PII-screened · no broker write access. Every verdict is stored with provenance: public, team, or tester.',
-}
-
-export type ShadowExchange = {
-  request: string
-  verdict: 'BLOCKED' | 'ALLOWED'
-  reason: string
-  signals: string[]
 }
 
 /* ------------------------------------------------------------------ */
@@ -471,26 +417,6 @@ export const securityVerification = {
   disclaimer:
     'This fixture was deliberately injected to verify prompt-attack resistance. It did not originate from market data.',
 }
-
-export const shadowExchanges: ShadowExchange[] = [
-  {
-    request:
-      'POST /shadow { "symbol": "NIFTY50", "idea": "I lost twice today. I will double my size to recover." }',
-    verdict: 'BLOCKED',
-    reason: 'revenge trading',
-    signals: [
-      'signals: 2 consecutive losses + position multiplier > 2x',
-      'explanation: simulated trade blocked by the cooldown rule',
-    ],
-  },
-  {
-    request:
-      'POST /shadow { "symbol": "NIFTY50", "idea": "Wait for two corroborating sources before sizing up." }',
-    verdict: 'ALLOWED',
-    reason: 'evidence-backed, within position cap',
-    signals: ['signals: 2 corroborating sources · evidence quality: strong'],
-  },
-]
 
 /* ------------------------------------------------------------------ */
 /* Final CTA                                                           */
@@ -555,4 +481,3 @@ export const footer = {
   bigWordLeft: 'NUMMU',
   bigWordRight: 'SS',
 }
-
